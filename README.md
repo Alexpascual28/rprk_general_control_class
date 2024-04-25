@@ -31,7 +31,7 @@
 
 <code>The RPRK (Raspberry Pi Robotics Kit) is a kit for robotics development. Using the parts in the kit, the user can build a mobile robot and program an algorithm that uses localisation and mapping to solve a maze. It includes wheel encoders, a camera and some sensors (2 ultrasonics at both sides, one infrared in front and one camera in front) to navigate the environment.</code>
 
-<code>This repo offers a serial communication algorithm to control the RPRK platform. This system utilizes to main modules, the **RPRK** Python library (**RPRK.py**) and the **RPRK Interface** Arduino sketch (<b>interfaceRPRK.ino</b>). The **RPRK** class and the **interfaceRPRK.ino** sketch form a system for controlling the RPRK robotics platform, using the Raspberry Pi and Arduino Nano 33 BLE, respectively. High-level decision-making and processing are handled by the Raspberry Pi, while real-time hardware interactions are managed by the Arduino, combining the strengths of both platforms for effective robot control.</code>
+<code>This repo offers a serial communication algorithm to control the RPRK platform. This system utilizes two main modules, the **RPRK** Python library (**RPRK.py**) and the **RPRK Interface** Arduino sketch (<b>interfaceRPRK.ino</b>). The **RPRK** class and the **interfaceRPRK.ino** sketch form a system for controlling the RPRK robotics platform, using the Raspberry Pi and Arduino Nano 33 BLE, respectively. High-level decision-making and processing are handled by the Raspberry Pi, while real-time hardware interactions are managed by the Arduino, combining the strengths of both platforms for effective robot control.</code>
 
 ---
 
@@ -303,23 +303,7 @@ The ARB (Arduino Robotics Board) and ARBPi libraries are crucial for communicati
 
 ### ARB library
 
-The ARB (Arduino Robotics Board) library runs in the Arduino Nano and is designed to simplify the interaction between the hardware components on the ARB and the software controlling it, in conjunction with a Raspberry Pi. This library is integral for controlling the motors, sensors, and serial communication in your robotics projects.
-
-**Key Components of the ARB Library**
-
-*Header File (`ARB.h`)*:
-
-* Defines all the necessary pins used by the ARB with easy-to-understand names such as **MOTOR_DIRA** for motor direction control and **USONIC1** to **USONIC4** for ultrasonic sensors.
-* It includes standard Arduino headers and defines constants for the **I2C multiplexer address** and various **GPIO** pins.
-* Declares an external array `reg_array` of 128 bytes to manage data communication between the Raspberry Pi and the Arduino.
-* Provides function prototypes for initialization (`ARBSetup`), register manipulation (`getRegister`, `putRegister`), and I2C bus management (`setI2CBus`).
-
-*Source File (`ARB.cpp`)*:
-
-* Implements the functions declared in the header. The `ARBSetup` function initializes **I2C** communication and optionally the serial communication depending on the passed parameter.
-* The `getRegister` and `putRegister` functions manage data in the `reg_array`, facilitating communication between the Arduino and any connected device like the Raspberry Pi.
-* The `setI2CBus` function controls which bus on the **I2C multiplexer** is active, allowing the selection of different sensor sets connected to the Arduino.
-* Provides a utility function `uSecToCM` to convert time (in microseconds) to distance (in centimeters), which is useful for ultrasonic distance measurements.
+The ARB (Arduino Robotics Board) library runs in the Arduino Nano and is designed to simplify the interaction between the hardware components on the ARB and the software controlling it, in conjunction with a Raspberry Pi. This library is integral for controlling the motors, sensors, and serial communication in your robotics projects. For a more detailed explanation, check [RPRK Lab Sessions: ARB Library](https://github.com/Alexpascual28/rprk_turtlebot_lab_sessions/blob/main/README.md#arb-library)
 
 **`getRegister` and `putRegister` Functions in the ARB Library**
 
@@ -342,10 +326,6 @@ The `getRegister` function is designed to access data from the `reg_array`. Here
    }
    ```
 
-   **Usage**:
-
-   This function is typically used when you need to read a value from a specific register that may have been written to by another part of your program or from an external device like the Raspberry Pi. For instance, you might store sensor data or configuration settings in these registers.
-
 *`putRegister` Function*
 
 The `putRegister` function allows writing data to a specific register in the `reg_array`. Here’s a detailed look:
@@ -364,142 +344,11 @@ The `putRegister` function allows writing data to a specific register in the `re
    }
    ```
 
-   **Usage**:
-
-   This function is crucial for updating the contents of a register, which could influence the behavior of the robot or other parts of the system. For example, it could be used to update control parameters, set desired motor speeds, or store temporary data needed for computations.
-
-**Example Usage**
-
-Here’s a basic example of how the ARB library functions might be used in an Arduino sketch:
-
-```cpp
-// C++
-#include <ARB.h>
-
-void setup() {
-    ARBSetup(true); // Initialize with serial communication enabled
-}
-
-void loop() {
-    // Example of setting a register value
-    putRegister(0, 120); // Put 120 in register 0
-
-    // Example of reading a register value
-    char val = getRegister(0);
-
-    // Use the infrared sensor connected to I2C bus 1
-    setI2CBus(1);
-}
-```
-
-Here is how you might use both getRegister and putRegister in a practical scenario:
-
-```cpp
-// C++
-void setup() {
-    ARBSetup(); // Initialize ARB without serial communication
-}
-
-void loop() {
-    // Setting a register value to store a motor speed setting
-    putRegister(10, 50);  // Assume register 10 is designated for motor speed
-
-    // Later in the loop, or in another function, you retrieve this motor speed
-    char motorSpeed = getRegister(10);
-
-    // Use the motor speed to control a motor
-    analogWrite(MOTOR_PWMA, motorSpeed);  // Assuming MOTOR_PWMA controls a motor's speed
-}
-```
-
-A demo usage of the ARB library for serial communication can also be found in `examples/serialComms.ino`.
-
-**Overview of Example Files in the ARB Examples Directory**
-
-Each example in the ARB library's **"examples"** directory demonstrates specific functionalities of the Arduino Robotics Board. Here is a brief overview of what each example illustrates:
-
-1. BLEPeripheral (`BLEPeripheral.ino`)
-This example showcases how to set up and use a Bluetooth Low Energy (BLE) peripheral with the Arduino. It is essential for projects that require wireless data transmission or remote control via BLE.
-
-2. I2CMux (`I2CMux.ino`)
-Demonstrates the use of an I2C multiplexer with the ARB. This is critical for projects where multiple I2C devices must share the same I2C bus without addressing conflicts.
-
-3. motorControl (`motorControl.ino`)
-Provides a basic example of how to control motors using the ARB. It includes setting up the motor drivers and controlling the speed and direction of DC motors, which is fundamental for any mobile robotics project.
-
-4. pushButton (`pushButton.ino`)
-Shows how to read the state of push buttons using the ARB. It is useful for projects that require user input or a simple interface for triggering actions.
-
-5. serialComms (`serialComms.ino`)
-This example is about setting up and using serial communication between the ARB and another device, like a Raspberry Pi or a computer. It covers sending and receiving data over serial, which is vital for debugging and complex communications.
-
-6. uSonic (`uSonic.ino`)
-Focuses on using ultrasonic sensors with the ARB to measure distances. This is particularly useful in robotics for obstacle avoidance, navigation, and environment mapping.
-
-**Detailed Explanation of Key Examples**
-
-Let's dive deeper into two specific examples: `motorControl` and `uSonic`.
-
-*`motorControl.ino`*
-
-This script initializes and controls two DC motors connected to the ARB. It handles setting the direction and speed of each motor through PWM signals, which are essential for driving the motors in forward or reverse directions.
-
-Key Snippets:
-
-```cpp
-// C++
-void setup() {
-    pinMode(MOTOR_PWMA, OUTPUT);  // Set motor A PWM pin as output
-    pinMode(MOTOR_DIRA, OUTPUT);  // Set motor A direction pin as output
-}
-
-void loop() {
-    analogWrite(MOTOR_PWMA, 128);  // Set speed for motor A
-    digitalWrite(MOTOR_DIRA, HIGH); // Set direction for motor A
-    delay(1000);                    // Run for 1 second
-    digitalWrite(MOTOR_DIRA, LOW);  // Change direction
-    delay(1000);                    // Run in the opposite direction for 1 second
-}
-```
-
-*`uSonic.ino`*
-
-This script demonstrates how to use an ultrasonic sensor connected to the ARB to measure distances. The script calculates the distance by timing how long it takes for an ultrasonic pulse to return to the sensor.
-
-Key Snippets:
-
-```cpp
-// C++
-void setup() {
-    pinMode(USONIC1, INPUT);  // Set the ultrasonic sensor pin as input
-}
-
-void loop() {
-    long duration, distance;
-    digitalWrite(USONIC1, LOW);
-    delayMicroseconds(2);
-    digitalWrite(USONIC1, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(USONIC1, LOW);
-    duration = pulseIn(USONIC1, HIGH);
-    distance = duration / 29 / 2;  // Calculate distance
-    Serial.print("Distance: ");
-    Serial.println(distance);
-    delay(1000);
-}
-```
-
 ### ARBPi library
 
 **Purpose and Functionality:**
 
-The ARBPi library runs in the Raspberry Pi and provides serial communication between the Raspberry Pi and the Arduino boards. The library offers a dual-interface, supporting both C++ and Python, thereby accommodating a wide range of programming preferences and project requirements.
-
-**Technical Stack and Integration:**
-
-**C++ Components**: Core functionalities are implemented in C++, ensuring high performance and direct access to low-level system resources.
-
-**Python Interface**: Python bindings are provided to leverage the ease of scripting and rapid development capabilities of Python, making it ideal for higher-level applications and quick testing.
+The ARBPi library runs in the Raspberry Pi and provides serial communication between the Raspberry Pi and the Arduino boards. The library offers a dual-interface, supporting both C++ and Python, thereby accommodating a wide range of programming preferences and project requirements. For a more detailed explanation, check [RPRK Lab Sessions: ARBPi Library](https://github.com/Alexpascual28/rprk_turtlebot_lab_sessions/blob/main/README.md#arbpi-library)
 
 **Key Components:**
 
@@ -520,17 +369,7 @@ The ARBPi library runs in the Raspberry Pi and provides serial communication bet
    - `wiringPi`: Used in the **C++** code for handling **GPIO** and serial communications on the Raspberry Pi.
    - `ctypes`: Utilized in the **Python** script to interface with the **C++** shared library.
 
-**Setup and Usage Instructions:**
-
-*Compiling C++ Code:*
-
-To compile the C++ part of the library, you would use g++ with appropriate flags to link against necessary libraries, such as wiringPi:
-
-```bash
-g++ -o ARBPi ARBPi.cpp -lwiringPi
-```
-
-*Running Python Scripts:*
+**Using in Python Scripts:**
 
 Ensure Python is installed along with ctypes. The Python script can be run by importing it to your code as follows:
 
@@ -539,32 +378,18 @@ Ensure Python is installed along with ctypes. The Python script can be run by im
 from ARBPi import *
 ```
 
-**Initialization Process:**
+*Process:*
 
 C++ and Python interfaces include an initialization function to set up the serial connection:
-```cpp
-// C++
-void ARBPiSetup() {
-    serialDevice = serialOpen(SERIAL, 115200);
-}
-```
 ```python
 # Python
 def ARBPiSetup(serialPath="/dev/ttyUSB0"):
     _ARBPi.ARBPiSetup(ctypes.c_char_p(serialPath.encode('ascii')))
 ```
 
-Reading and Writing Registers:
+**Reading and Writing Registers:**
 
 To read a register:
-```cpp
-// C++
-char getRegister(int reg) {
-    serialPutchar(serialDevice, reg);
-    while(serialDataAvail(serialDevice) < 1) {}
-    return serialGetchar(serialDevice);
-}
-```
 ```python
 # Python
 def getRegister(reg):
@@ -572,20 +397,11 @@ def getRegister(reg):
 ```
 
 To write to a register:
-```cpp
-// C++
-void putRegister(int reg, char data) {
-    serialPutchar(serialDevice, reg + 128);
-    serialPutchar(serialDevice, data);
-}
-```
 ```python
 # Python
 def putRegister(reg, data):
     _ARBPi.putRegister(ctypes.c_int(reg), ctypes.c_byte(data))
 ```
-
-These snippets illustrate the direct interaction with hardware through serial interfaces, encapsulating complex operations into simple, reusable API calls.
 
 ---
 
