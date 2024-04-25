@@ -31,7 +31,9 @@
 
 <code>The RPRK (Raspberry Pi Robotics Kit) is a kit for robotics development. Using the parts in the kit, the user can build a mobile robot and program an algorithm that uses localisation and mapping to solve a maze. It includes wheel encoders, a camera and some sensors (2 ultrasonics at both sides, one infrared in front and one camera in front) to navigate the environment.</code>
 
-<code>This repo offers a serial communication algorithm to control the RPRK platform. This system utilizes two main modules, the **RPRK** Python library (**RPRK.py**) and the **RPRK Interface** Arduino sketch (<b>interfaceRPRK.ino</b>). The **RPRK** class and the **interfaceRPRK.ino** sketch form a system for controlling the RPRK robotics platform, using the Raspberry Pi and Arduino Nano 33 BLE, respectively. High-level decision-making and processing are handled by the Raspberry Pi, while real-time hardware interactions are managed by the Arduino, combining the strengths of both platforms for effective robot control.</code>
+<code>This repo offers a serial communication algorithm to control the RPRK platform. This system utilizes two main modules, the **RPRK** Python library (**RPRK.py**) and the **RPRK Interface** Arduino sketch (<b>interfaceRPRK.ino</b>).</code>
+
+<code>The **RPRK.py** class and the **interfaceRPRK.ino** sketch collaboratively manage the **RPRK** robotics platform, utilizing the Raspberry Pi for high-level decision-making and the Arduino Nano 33 BLE for real-time hardware interaction. The **interfaceRPRK.ino** on the Arduino processes and relays sensor data and actuator commands via serial registers, serving as the primary interface for hardware control. Concurrently, the **RPRK Python class** on the Raspberry Pi abstracts the robot's operations, sending commands through the **ARBPi** library, which handles serial communications. This setup ensures seamless integration and communication between the Raspberry Pi and Arduino, leveraging respective libraries (**ARB** for Arduino and **ARBPi** for Raspberry Pi) to facilitate effective control and coordination of the robotic system.</code>
 
 ---
 
@@ -407,7 +409,59 @@ def putRegister(reg, data):
 
 ## "RPRK" and "interfaceRPRK" Classes
 
+The `RPRK` class and the `interfaceRPRK.ino` sketch form a system for controlling the RPRK robotics platform, using the Raspberry Pi and Arduino Nano 33 BLE, respectively. High-level decision-making and processing are handled by the Raspberry Pi, while real-time hardware interactions are managed by the Arduino, combining the strengths of both platforms for effective robot control.
+
+The `interfaceRPRK.ino` reads all sensor data and forwards it through specified serial registers, while at the same time reading the data recieved through separate control registers and operating the actuators based on it. It thus, acts as a general control interface for the Arduino. The `RPRK` python class uses serial communication to create a high-level abstraction of the RPRK robot's operation. It can be imported into any Python project in order to send commands to the ARB board by the use of simple functions. These functions send the appropiate signal through the right serial channel in order for `interfaceRPRK.ino` to receive this signal and operate the robot's actuators and sensors in accordance with the command.
+
+To establish and maintain serial communication between the ARB and the Pi, two libraries are provided. The `ARB.zip` library is designed to be imported into Arduino, and it is used by `interfaceRPRK.ino` to manage serial comms on the Arduino side. The `ARBPi` library is designed to be imported into the Python or C script in the Pi to handle comms on the Raspberry side.
+
 ### RPRK Class (Raspberry Pi)
+
+The RPRK class (`RPRK.py`) is a Python module designed for handling various components of the Raspberry Pi Robotics Kit (RPRK). This module interfaces with Arduino via the use of the `ARBPi` serial communication library for sensor and actuator management, processing sensor data, and controlling actuators based on sensor inputs and predefined algorithms.
+
+The `RPRK.py` file encapsulates multiple classes and functionalities to enable comprehensive robot control and monitoring. This script contains the main class `RPRK`, which integrates various sub-modules like *motors*, *camera*, *infrared* and *ultrasonic* sensors, and *joystick* control. Each submodule is encapsulated in its class within the `RPRK` class, allowing for organized and modular programming. Here's a detailed breakdown of its components and functionalities:
+
+**Initialisation**
+
+To initialize the RPRK system, create an instance of the RPRK class. This setup will connect to the Arduino through serial communication, initialize all connected sensors, and prepare the motors and camera for operation.
+
+```python
+# Python
+from RPRK import RPRK
+
+robot = RPRK()
+```
+
+Main Class: RPRK
+Initialization (__init__):
+Initializes serial communication with Arduino using the ARBPiSetup() function from the ARBPi module.
+Initializes various subsystems including motors, camera, infrared sensor, ultrasonic sensors, and joystick.
+Reading and Sending Data:
+Functions like read_16bit_number and send_16bit_number handle conversions between Python and the serial registers for 16-bit data operations.
+read_fractional_number and send_fractional_number handle floating-point data for accurate sensor readings and actuator controls.
+Submodules within RPRK
+Motors Class:
+Attributes: Contains attributes for wheel distances, speed, and various registers for motor control.
+Methods: Includes methods to change direction, set speed levels, adjust individual wheel speeds, reset encoders, and compute current robot pose based on wheel encoder readings.
+Camera Class:
+Initialization: Configures the Raspberry Pi camera and prepares it for continuous image capture.
+Image Processing: Methods for detecting markers (Aruco), blobs, and colors within the camera feed. Uses OpenCV for image analysis.
+Ultrasonic Class:
+Sensor Reading: Provides a method to retrieve the distance measurement from ultrasonic sensors.
+Joystick Class:
+Joystick Control: Methods to get the current direction from joystick inputs.
+InfraredSensor Class:
+Distance Measurement: Method to fetch the current distance from an infrared sensor.
+Detailed Methodologies
+read_16bit_number and send_16bit_number:
+These methods facilitate reading and writing of 16-bit integers across two 8-bit registers, critical for handling larger data values that exceed the capacity of a single 8-bit register.
+read_fractional_number and send_fractional_number:
+These methods manage floating-point numbers by splitting them into integer and fractional parts, crucial for precise control and measurement tasks.
+Use Cases in Robotics
+Motor Control: Adjust speeds and directions based on sensor inputs or remote commands, utilizing feedback from encoders to adjust robot movement accurately.
+Sensor Integration: Use infrared and ultrasonic sensors to detect obstacles, aiding in autonomous navigation.
+User Input: Leverage joystick inputs for manual control of the robot's movement.
+Vision Processing: Utilize the camera for visual tasks like navigation markers detection, object recognition, and environment mapping.
 
 ### interfaceRPRK.ino Sketch (Arduino)
 
