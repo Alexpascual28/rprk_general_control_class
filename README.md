@@ -407,7 +407,7 @@ def putRegister(reg, data):
 
 ---
 
-## "RPRK" and "interfaceRPRK" Classes
+# "RPRK" and "interfaceRPRK" Classes
 
 The `RPRK` class and the `interfaceRPRK.ino` sketch form a system for controlling the RPRK robotics platform, using the Raspberry Pi and Arduino Nano 33 BLE, respectively. High-level decision-making and processing are handled by the Raspberry Pi, while real-time hardware interactions are managed by the Arduino, combining the strengths of both platforms for effective robot control.
 
@@ -415,13 +415,13 @@ The `interfaceRPRK.ino` reads all sensor data and forwards it through specified 
 
 To establish and maintain serial communication between the ARB and the Pi, two libraries are provided. The `ARB.zip` library is designed to be imported into Arduino, and it is used by `interfaceRPRK.ino` to manage serial comms on the Arduino side. The `ARBPi` library is designed to be imported into the Python or C script in the Pi to handle comms on the Raspberry side.
 
-### RPRK Class (Raspberry Pi)
+## RPRK Class (Raspberry Pi)
 
 The RPRK class (`RPRK.py`) is a Python module designed for handling various components of the Raspberry Pi Robotics Kit (RPRK). This module interfaces with Arduino via the use of the `ARBPi` serial communication library for sensor and actuator management, processing sensor data, and controlling actuators based on sensor inputs and predefined algorithms.
 
-The `RPRK.py` file encapsulates multiple classes and functionalities to enable comprehensive robot control and monitoring. This script contains the main class `RPRK`, which integrates various sub-modules like *motors*, *camera*, *infrared* and *ultrasonic* sensors, and *joystick* control. Each submodule is encapsulated in its class within the `RPRK` class, allowing for organized and modular programming. Here's a detailed breakdown of its components and functionalities:
+The `RPRK.py` file encapsulates multiple classes and functionalities to enable comprehensive robot control and monitoring. This script contains the main class `RPRK`, which integrates various sub-modules like *motors*, *camera*, *infrared* and *ultrasonic* sensors, and *joystick* control. Each submodule is encapsulated in its nested class within the `RPRK` class, allowing for organized and modular programming. Here's a detailed breakdown of its components and functionalities:
 
-**Initialisation**
+### Initialisation
 
 To initialize the RPRK system, create an instance of the RPRK class. This setup will connect to the Arduino through serial communication, initialize all connected sensors, and prepare the motors and camera for operation.
 
@@ -432,17 +432,351 @@ from RPRK import RPRK
 robot = RPRK()
 ```
 
-Main Class: RPRK
-Initialization (__init__):
-Initializes serial communication with Arduino using the ARBPiSetup() function from the ARBPi module.
-Initializes various subsystems including motors, camera, infrared sensor, ultrasonic sensors, and joystick.
-Reading and Sending Data:
-Functions like read_16bit_number and send_16bit_number handle conversions between Python and the serial registers for 16-bit data operations.
-read_fractional_number and send_fractional_number handle floating-point data for accurate sensor readings and actuator controls.
-Submodules within RPRK
-Motors Class:
-Attributes: Contains attributes for wheel distances, speed, and various registers for motor control.
-Methods: Includes methods to change direction, set speed levels, adjust individual wheel speeds, reset encoders, and compute current robot pose based on wheel encoder readings.
+* `__init__`: The constructor initializes the communication setup and declares the initial position of the robot. It initializes serial communication with Arduino using the `ARBPiSetup()` function from the ARBPi module. It also instantiates the sub-classes that manage different parts of the robot such as motors, camera, infrared sensor, ultrasonic sensors, and joystick.
+
+```python
+#Python
+def __init__(self):
+        # Setup the ARB functions
+        print("Setting up ARB")
+        ARBPiSetup(SERIAL)
+        
+        self.initial_pose = [0, 0, 0] #  x, y, w(orientation)
+        
+        self.motors = self.Motors(self, self.initial_pose)
+        self.camera = self.Camera()
+        self.infrared = self.InfraredSensor()
+        self.ultrasound = self.Ultrasonic()
+        self.joystick = self.Joystick()
+```
+
+### Helper Functions
+
+The RPRK class includes several helper functions designed to facilitate common tasks related to reading from and writing to hardware registers. These functions are crucial for handling the data between the Raspberry Pi and the Arduino in a structured and efficient manner. 
+
+1. `read_16bit_number(register1, register2)`
+
+   This function is used to read two separate 8-bit values from the specified registers and combine them into a single 16-bit signed integer. The process involves:
+
+   * Fetching the first part from register2 and the second part from register1.
+   * Shifting the first part by 7 bits to the left and adding the second part to construct the full 16-bit value.
+
+   Here is how it's implemented:
+
+   ```python
+   # Python
+   def read_16bit_number(self, register1, register2):
+      first_part = getRegister(register2)
+      second_part = getRegister(register1)
+      
+      result = (first_part << 7) + second_part
+      return result
+   ```
+
+   This function is essential for operations where data exceeds the capacity of a single 8-bit register, such as reading encoder values which can span a wider range than 8 bits can offer.
+
+2. `send_16bit_number(number, register1, register2)`
+
+   The counterpart to `read_16bit_number`, this function splits a 16-bit number into two 8-bit parts and sends each part to a specified register. It operates by:
+
+   * Shifting the number right by 7 bits to isolate the upper part.
+   * Subtracting the shifted value (left shifted back by 7 bits) from the original number to get the lower part.
+   * Writing each part to its corresponding register.
+
+   Here’s the implementation:
+
+   ```python
+   # Python
+   def send_16bit_number(self, number, register1, register2):
+      first_part = number >> 7
+      second_part = number - (first_part << 7)
+      
+      putRegister(register1, second_part)
+      putRegister(register2, first_part)
+   ```
+
+   This function is crucial for sending data to the Arduino that requires more than 8 bits, such as sending precise control signals to actuators.
+
+3. `read_fractional_number(register1, register2)`
+
+   This function reads two values from specified registers, interpreting them as the whole part and fractional part of a decimal number, respectively. It:
+
+   * Retrieves the whole part from register1.
+   * Retrieves the fractional part from register2, which represents the decimal places.
+   * Combines these to form a decimal number.
+
+   Here is how it works:
+
+   ```python
+   # Python
+   def read_fractional_number(self, register1, register2):
+      wholePart = getRegister(register1)
+      fractPart = getRegister(register2)
+      
+      resultFrac = wholePart + fractPart/100
+      return resultFrac
+   ```
+
+   This function is particularly useful for precise measurements that require decimal accuracy but are transmitted by the Arduino in separate whole and fractional parts, such as sensor readings.
+
+4. `send_fractional_number(number, register1, register2)`
+
+   The inverse of `read_fractional_number`, this function takes a decimal number and splits it into a whole part and a fractional part, sending each to a designated register. It:
+
+   * Converts the number into an integer to isolate the whole part.
+   * Multiplies the decimal part by 100 to convert it into a 2-digit integer suitable for transmission.
+   * Sends each part to the corresponding register.
+
+   Example usage is as follows:
+
+   ```python
+   # Python
+   def send_fractional_number(self, number, register1, register2):
+      wholePart = int(number)
+      fractPart = int((number - wholePart) * 100)
+      
+      putRegister(register1, wholePart)
+      putRegister(register2, fractPart)
+   ```
+
+   This function is used to send detailed decimal values, such as PID setpoints or calibration data, where precision is critical.
+
+### Motors (`Motors`) Submodule
+
+**Attributes**: The `Motors` class nested within `RPRK` contains attributes for wheel distances, speed, and various register addresses for interfacing with the Arduino for motor control.
+
+**Methods**: Includes methods to change direction, PWM speed control, set speed levels, adjust individual wheel speeds, PID control, read and reset encoder values, and compute current robot pose based on wheel encoder readings, utilizing encoder feedback to adjust the movement dynamically.
+
+**Initialisation**
+
+1. `__init__`: The `__init__` function within the `Motors` subclass of the RPRK class serves as the constructor for initializing motor-related attributes and settings. This function is called automatically when a new instance of the Motors class is created.
+
+* It is responsible for initializing the motor system of the robot. It sets up important attributes such as the distances between wheels, movement steps, and speed settings for individual motors. The function also establishes serial register mappings used for sending commands and reading data from the hardware, as well as setting the initial pose of the robot.
+
+**Direct Movement Control**
+
+These functions interface directly with the robot's hardware. They send commands to specific registers that control the motors' speed and direction. Each function employs the `getRegister` and `putRegister` methods from the **ARB** library to read from or write to the Arduino’s registers.
+
+2. `change_direction(self, direction)`
+
+   This function allows the robot to change its overall movement direction. It takes a single argument direction, which specifies the intended movement direction of the robot. The possible directions are *'forward'*, *'backward'*, *'left'*, *'right'*, and *'stop'*. Here’s how it works:
+
+   * **Mapping Directions**: A dictionary maps these string directions to numerical values understood by the Arduino hardware. This values will be read by the "`Motors.cpp`" class within `interfaceRPRK.ino` (explained later).
+   * **Command Execution**: It sends the corresponding numerical command to a specific register that controls the robot's direction.
+   * **Feedback**: Prints the direction the robot is moving towards or indicates if the input was incorrect.
+
+   ```python
+   # Changes the robot direction based on global direction commands
+   def change_direction(self, direction):
+      possible_directions = {"forward": 1, "backward": 2, "left": 3, "right": 4, "stop": 5}
+      
+      if direction in possible_directions:
+            # Send data
+            putRegister(self.REG_RECEIVE_MSG_DRIVE, possible_directions.get(direction))
+            print(f"Moving {direction}")
+      else:
+            print("Incorrect direction.")
+   ```
+
+3. `set_robot_speed_by_level(self, speed_level)`
+
+   This function adjusts the robot's speed based on predefined speed levels ranging from 0 to 9, where each level represents a specific speed setting:
+
+   * **Validation**: Checks if the speed_level input is within the acceptable range (0-9).
+   * **Command Execution**: Sends the speed level as a command to a register that adjusts the robot's speed.
+   * **Feedback**: Provides confirmation of the new speed setting or error if the input level is out of range.
+
+4. `set_wheel_speed(self, wheel, speed_cm_s)`
+
+   This function sets the speed of a specified wheel (either **'A'** or **'B'**) to a specific value in centimeters per second (cm/s):
+
+   * **Calculate PWM**: Converts the desired speed in cm/s to a PWM signal value based on pre-determined calibration factors.
+   * **Validation**: Ensures the PWM value stays within the maximum allowable limits (0-255).
+   * **Command Execution**: Sends the calculated PWM value to the corresponding motor's register.
+   * **Feedback**: Prints the set speed and corresponding PWM value or indicates incorrect wheel input.
+
+5. `set_wheel_direction(self, wheel, direction)`
+
+   This function controls the rotational direction of a specified wheel:
+
+   * **Direction Definitions**: Maps *'CW'* (clockwise) and *'CCW'* (counterclockwise) to respective hardware-understood numerical values.
+   * **Command Execution**: Sends the direction command to the appropriate register controlling the specified wheel's direction.
+   * **Feedback**: Confirms the direction set for the wheel or prints an error for incorrect inputs.
+
+6. `set_robot_speed(self, speed_a, speed_b=None)`
+
+   This function simultaneously sets the speeds of both wheels:
+
+   * **Dual Speed Setting**: If `speed_b` is not specified, it sets both wheels to the speed of `speed_a`. If `speed_b` is given, each wheel gets its respective speed setting.
+   * **Command Execution**: Utilizes `set_wheel_speed` internally to send commands to both wheels based on the speeds provided.
+   * **Flexibility**: Allows independent speed control for each wheel, which is useful for maneuvers like turning.
+
+   These functions are integral to the control system of the robot, providing direct manipulation of its movement, speed, and direction, enabling precise navigation and task execution within its operational environment.
+
+   ```python
+   # Python
+   # Sets speed of both wheels simultaneously
+   def set_robot_speed(self, speed_a, speed_b=None):
+      if speed_b == None:
+            self.set_wheel_speed("A", speed_a);
+            self.set_wheel_speed("B", speed_a);
+      else:
+            self.set_wheel_speed("A", speed_a);
+            self.set_wheel_speed("B", speed_b);
+   ```
+
+**Encoder Control**
+
+These methods are designed for specific tasks involving motor encoder control and the robot's movement. They interact with hardware at a low level, retrieving and manipulating data critical for maintaining the robot's spatial awareness and operational accuracy.
+
+7. `get_current_steps(self, encoder)`
+
+   This function reads the current step count from a specified wheel encoder. Encoders on motors A and B measure the number of steps the wheels have taken, which is essential for tracking distance traveled and for feedback control systems.
+
+   * **Parameter**: `encoder` specifies which encoder (*A* or *B*) to read from.
+   * **Process**: It retrieves the step count by reading two separate registers (**high** and **low** byte) for the specified encoder and combining them into a single value using the `read_16bit_number` method.
+   * **Output**: Returns the current step count as an integer.
+
+   ```python
+   # Reads current steps from the encoder registers
+   def get_current_steps(self, encoder):
+      possible_encoders = {"A": [self.REG_SEND_DATA_ENCODER_A_1, self.REG_SEND_DATA_ENCODER_A_2],
+                           "B": [self.REG_SEND_DATA_ENCODER_B_1, self.REG_SEND_DATA_ENCODER_B_2]}
+      
+      if encoder in possible_encoders:
+            r1, r2 = possible_encoders.get(encoder)
+            steps = self.rprk.read_16bit_number(r1, r2)
+            return steps
+      else:
+            print("Incorrect encoder.")
+   ```
+
+8. `get_current_distance(self, encoder)`
+
+   This function calculates and retrieves the current distance traveled by the robot, based on the readings from the specified encoder (*A* or *B*).
+
+   * **Parameter**: `encoder` identifies which wheel's encoder to use for the distance calculation.
+   * **Process**: Reads the whole and fractional parts of the distance from the designated registers and combines them into a single decimal value using the `read_fractional_number` method.
+   * **Output**: Returns the current distance traveled in units consistent with those programmed into the encoders (usually *centimeters*).
+
+9. `get_current_speed(self, encoder)`
+
+   This function calculates and returns the current speed of the robot based on encoder data. It uses the readings from the encoder specified (*A* or *B*) to determine how fast the wheel is moving.
+
+   * **Parameter**: `encoder` specifies which wheel's encoder to use.
+   * **Process**: Similar to `get_current_distance`, it retrieves the speed as a fractional number from two registers representing the whole and fractional parts of the speed.
+   * **Output**: Returns the speed of the wheel in units per second, providing real-time speed data which is crucial for dynamic speed adjustments.
+
+   ```python
+   # Reads current robot speed from the encoder registers
+   def get_current_speed(self, encoder):
+      possible_encoders = {"A": [self.REG_SEND_SPEED_A, self.REG_SEND_SPEED_A_DEC],
+                           "B": [self.REG_SEND_SPEED_B, self.REG_SEND_SPEED_B_DEC]}
+      
+      if encoder in possible_encoders:
+            r1, r2 = possible_encoders.get(encoder)
+            speed = self.rprk.read_fractional_number(r1, r2)
+            return speed
+      else:
+            print("Incorrect encoder.")
+   ```
+
+10. `reset_encoder(self, encoder)`
+
+   This function resets the step count of a specified encoder to zero. Resetting encoders is necessary when initializing the robot or when you need to recalibrate or restart distance measurements.
+
+   * **Parameter**: `encoder` indicates which encoder (*A* or *B*) to reset.
+   * **Process**: Sends a reset command to the appropriate *register* linked to the chosen encoder.
+   * **Output**: Typically does not return a value but resets the encoder's step count, allowing for fresh measurements from a known reference point.
+
+**Odometry**
+
+These functions are responsible for calculating the robot's current position and speed based on encoder data. They are esential for dynamic movement control and navigation.
+
+11. `calculate_current_pose(self, distance_a, distance_b)`
+
+   This function updates the robot's current pose (*position* and *orientation*) based on the distances traveled by each wheel, as measured by the encoders. The pose includes the robot's coordinates (*x*, *y*) and its orientation (angle *theta*).
+
+   * **Parameters**: `distance_a`: Distance traveled by wheel A. `distance_b`: Distance traveled by wheel B.
+   * **Process**:
+      * **Calculating Angular Change**: It first calculates the change in angle (`angle_change`) as (`distance_b` - `distance_a`) / `self.distance_between_wheels`, which gives the difference in wheel distances divided by the axle length.
+      * **Calculating Linear Movement**: The function then computes the average linear movement (`distance_change`) as (`distance_a` + `distance_b`) / 2.
+      * **Updating Pose**: The new position (*x*, *y*) and orientation (*theta*) are updated based on the previous pose and the calculated angular and linear changes. This update uses trigonometric calculations to determine how much the robot has moved and rotated.
+      * **Output**: Returns the incremental changes (`distance_change`, `angle_change`) and updates the robot's internal pose representation.
+
+12. `calculate_speed_cm_s(self, distance_cm, time_difference_s)`
+
+   This function calculates the speed of the robot in centimeters per second based on the distance traveled over a given time interval. It's useful for monitoring and controlling the robot's speed dynamically.
+
+   * **Parameters**: `distance_cm`: The distance traveled in centimeters. `time_difference_s`: The time elapsed during the travel in seconds.
+   * **Process**: Speed Calculation. Computes the speed as `distance_cm` / `time_difference_s`, which represents the average speed over the specified time period.
+   * **Output**: Returns the calculated speed in centimeters per second.
+
+**PID Control**
+
+These functions are used to interface with the Arduino's PID control functions and parameters (in `Motors.cpp`). They are responsible for setting up and adjusting feedback control that adapts the robot's behavior based on ongoing performance metrics.
+
+13. `set_control_mode(self, control_mode)`
+
+   This function sets the control mode of the motors. It is used to switch between different modes of motor operation such as **PID** control or direct speed control, based on the tasks or conditions the robot is handling.
+
+   * **Parameter**: `control_mode`, A string that specifies the desired control mode (`"PID"` for *PID* control or `"SPEED"` for *direct speed* control).
+   * **Process**:
+      * A dictionary maps the string identifiers to numerical values understood by the motor controller hardware.
+      * The function sends the appropriate numerical value to a control register that dictates the control mode of the motors.
+
+   ```python
+   # Method to set control mode
+   def set_control_mode(self, control_mode):
+      control_modes = {"PID": 1, "SPEED": 0}
+
+      if control_mode in control_modes:
+            # Send data
+            putRegister(self.REG_RECEIVE_CONTROL_MODE, control_modes.get(control_mode))
+            print(f"Control mode: {control_mode}")
+      else:
+            print("Incorrect mode.")
+   ```
+
+14. `set_pid_tuning(self, motor, tuning, value)`
+
+   This function adjusts the **PID** (*Proportional-Integral-Derivative*) coefficients for a specified motor. It's critical for optimizing control responses such as stability, responsiveness, and steady-state error in robotic movements.
+
+   * **Parameters**:
+      * `motor`: Specifies which motor (*'A'* or *'B'*) the tuning applies to.
+      * `tuning`: Specifies which *PID* parameter to set (`"KP"` for the proportional gain, `"KI"` for the integral gain, or `"KD"` for the derivative gain).
+      * `value`: The numerical value to set for the specified PID parameter.
+
+   * **Process**: Maps the tuning parameter to the appropriate control register associated with the motor. Sends the value to the specified register.
+
+15. `set_pid_tunings(self, motor, kp, ki, kd)`
+
+   This function sets all the **PID** tuning parameters simultaneously for a specific motor. It's used for more comprehensive adjustments to the **PID** controller settings, allowing simultaneous updates to all parameters for consistent control behavior.
+
+   * **Parameters**:
+      * `motor`: Specifies which motor (*'A'* or *'B'*) the tunings apply to.
+      * `kp`: The value for the proportional gain.
+      * `ki`: The value for the integral gain.
+      * `kd`: The value for the derivative gain.
+   * **Process**: Utilizes the `set_pid_tuning` method to set each of the PID parameters individually but within a single operation.
+
+   ```python
+   # Method to set PID tunings
+   def set_pid_tunings(self, motor, kp, ki, kd):
+      self.set_pid_tuning(motor, "KP", kp)
+      self.set_pid_tuning(motor, "KI", ki)
+      self.set_pid_tuning(motor, "KD", kd)
+   ```
+
+16. `set_pid_setpoint(self, motor, value)`
+
+   This function sets the PID **setpoint** for a particular motor. The *setpoint* is the target state for the PID controller, such as a desired speed or position, against which the actual output is compared. In this case, the setpoint represents the target position of the motor.
+
+   * **Parameters**:
+      * `motor`: Identifies which motor (*'A'* or *'B'*) the setpoint is for.
+      * `value`: The target setpoint value.
+   * **Process**: The value is sent to two registers: one for the whole part and one for the fractional part of the setpoint, to maintain precision. This split allows for fine-grained control over the setpoint, accommodating both integer and decimal values.
+
 Camera Class:
 Initialization: Configures the Raspberry Pi camera and prepares it for continuous image capture.
 Image Processing: Methods for detecting markers (Aruco), blobs, and colors within the camera feed. Uses OpenCV for image analysis.
