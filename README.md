@@ -706,11 +706,11 @@ These functions are responsible for calculating the robot's current position and
 
 12. `calculate_speed_cm_s(self, distance_cm, time_difference_s)`
 
-   This function calculates the speed of the robot in centimeters per second based on the distance traveled over a given time interval. It's useful for monitoring and controlling the robot's speed dynamically.
+      This function calculates the speed of the robot in centimeters per second based on the distance traveled over a given time interval. It's useful for monitoring and controlling the robot's speed dynamically.
 
-   * **Parameters**: `distance_cm`: The distance traveled in centimeters. `time_difference_s`: The time elapsed during the travel in seconds.
-   * **Process**: Speed Calculation. Computes the speed as `distance_cm` / `time_difference_s`, which represents the average speed over the specified time period.
-   * **Output**: Returns the calculated speed in centimeters per second.
+      * **Parameters**: `distance_cm`: The distance traveled in centimeters. `time_difference_s`: The time elapsed during the travel in seconds.
+      * **Process**: Speed Calculation. Computes the speed as `distance_cm` / `time_difference_s`, which represents the average speed over the specified time period.
+      * **Output**: Returns the calculated speed in centimeters per second.
 
 **PID Control**
 
@@ -718,64 +718,64 @@ These functions are used to interface with the Arduino's PID control functions a
 
 13. `set_control_mode(self, control_mode)`
 
-   This function sets the control mode of the motors. It is used to switch between different modes of motor operation such as **PID** control or direct speed control, based on the tasks or conditions the robot is handling.
+      This function sets the control mode of the motors. It is used to switch between different modes of motor operation such as **PID** control or direct speed control, based on the tasks or conditions the robot is handling.
 
-   * **Parameter**: `control_mode`, A string that specifies the desired control mode (`"PID"` for *PID* control or `"SPEED"` for *direct speed* control).
-   * **Process**:
-      * A dictionary maps the string identifiers to numerical values understood by the motor controller hardware.
-      * The function sends the appropriate numerical value to a control register that dictates the control mode of the motors.
+      * **Parameter**: `control_mode`, A string that specifies the desired control mode (`"PID"` for *PID* control or `"SPEED"` for *direct speed* control).
+      * **Process**:
+         * A dictionary maps the string identifiers to numerical values understood by the motor controller hardware.
+         * The function sends the appropriate numerical value to a control register that dictates the control mode of the motors.
 
-   ```python
-   # Method to set control mode
-   def set_control_mode(self, control_mode):
-      control_modes = {"PID": 1, "SPEED": 0}
+      ```python
+      # Method to set control mode
+      def set_control_mode(self, control_mode):
+         control_modes = {"PID": 1, "SPEED": 0}
 
-      if control_mode in control_modes:
-            # Send data
-            putRegister(self.REG_RECEIVE_CONTROL_MODE, control_modes.get(control_mode))
-            print(f"Control mode: {control_mode}")
-      else:
-            print("Incorrect mode.")
-   ```
+         if control_mode in control_modes:
+               # Send data
+               putRegister(self.REG_RECEIVE_CONTROL_MODE, control_modes.get(control_mode))
+               print(f"Control mode: {control_mode}")
+         else:
+               print("Incorrect mode.")
+      ```
 
 14. `set_pid_tuning(self, motor, tuning, value)`
 
-   This function adjusts the **PID** (*Proportional-Integral-Derivative*) coefficients for a specified motor. It's critical for optimizing control responses such as stability, responsiveness, and steady-state error in robotic movements.
+      This function adjusts the **PID** (*Proportional-Integral-Derivative*) coefficients for a specified motor. It's critical for optimizing control responses such as stability, responsiveness, and steady-state error in robotic movements.
 
-   * **Parameters**:
-      * `motor`: Specifies which motor (*'A'* or *'B'*) the tuning applies to.
-      * `tuning`: Specifies which *PID* parameter to set (`"KP"` for the proportional gain, `"KI"` for the integral gain, or `"KD"` for the derivative gain).
-      * `value`: The numerical value to set for the specified PID parameter.
+      * **Parameters**:
+         * `motor`: Specifies which motor (*'A'* or *'B'*) the tuning applies to.
+         * `tuning`: Specifies which *PID* parameter to set (`"KP"` for the proportional gain, `"KI"` for the integral gain, or `"KD"` for the derivative gain).
+         * `value`: The numerical value to set for the specified PID parameter.
 
-   * **Process**: Maps the tuning parameter to the appropriate control register associated with the motor. Sends the value to the specified register.
+      * **Process**: Maps the tuning parameter to the appropriate control register associated with the motor. Sends the value to the specified register.
 
 15. `set_pid_tunings(self, motor, kp, ki, kd)`
 
-   This function sets all the **PID** tuning parameters simultaneously for a specific motor. It's used for more comprehensive adjustments to the **PID** controller settings, allowing simultaneous updates to all parameters for consistent control behavior.
+      This function sets all the **PID** tuning parameters simultaneously for a specific motor. It's used for more comprehensive adjustments to the **PID** controller settings, allowing simultaneous updates to all parameters for consistent control behavior.
 
-   * **Parameters**:
-      * `motor`: Specifies which motor (*'A'* or *'B'*) the tunings apply to.
-      * `kp`: The value for the proportional gain.
-      * `ki`: The value for the integral gain.
-      * `kd`: The value for the derivative gain.
-   * **Process**: Utilizes the `set_pid_tuning` method to set each of the PID parameters individually but within a single operation.
+      * **Parameters**:
+         * `motor`: Specifies which motor (*'A'* or *'B'*) the tunings apply to.
+         * `kp`: The value for the proportional gain.
+         * `ki`: The value for the integral gain.
+         * `kd`: The value for the derivative gain.
+      * **Process**: Utilizes the `set_pid_tuning` method to set each of the PID parameters individually but within a single operation.
 
-   ```python
-   # Method to set PID tunings
-   def set_pid_tunings(self, motor, kp, ki, kd):
-      self.set_pid_tuning(motor, "KP", kp)
-      self.set_pid_tuning(motor, "KI", ki)
-      self.set_pid_tuning(motor, "KD", kd)
-   ```
+      ```python
+      # Method to set PID tunings
+      def set_pid_tunings(self, motor, kp, ki, kd):
+         self.set_pid_tuning(motor, "KP", kp)
+         self.set_pid_tuning(motor, "KI", ki)
+         self.set_pid_tuning(motor, "KD", kd)
+      ```
 
 16. `set_pid_setpoint(self, motor, value)`
 
-   This function sets the PID **setpoint** for a particular motor. The *setpoint* is the target state for the PID controller, such as a desired speed or position, against which the actual output is compared. In this case, the setpoint represents the target position of the motor.
+      This function sets the PID **setpoint** for a particular motor. The *setpoint* is the target state for the PID controller, such as a desired speed or position, against which the actual output is compared. In this case, the setpoint represents the target position of the motor.
 
-   * **Parameters**:
-      * `motor`: Identifies which motor (*'A'* or *'B'*) the setpoint is for.
-      * `value`: The target setpoint value.
-   * **Process**: The value is sent to two registers: one for the whole part and one for the fractional part of the setpoint, to maintain precision. This split allows for fine-grained control over the setpoint, accommodating both integer and decimal values.
+      * **Parameters**:
+         * `motor`: Identifies which motor (*'A'* or *'B'*) the setpoint is for.
+         * `value`: The target setpoint value.
+      * **Process**: The value is sent to two registers: one for the whole part and one for the fractional part of the setpoint, to maintain precision. This split allows for fine-grained control over the setpoint, accommodating both integer and decimal values.
 
 Camera Class:
 Initialization: Configures the Raspberry Pi camera and prepares it for continuous image capture.
