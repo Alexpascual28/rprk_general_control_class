@@ -1461,6 +1461,24 @@ The `Motors.cpp` file is a comprehensive implementation for controlling and mana
    *Control Mode and PID Setting Functions*
 
    * **Control Mode Reading** (`m_readControlModeRegister()`): Reads and updates the control mode from a register, switching between PID control and manual control based on input.
+
+   ```cpp
+   void Motors::m_readControlModeRegister(){
+      int controlModeInput = getRegister(REG_RECEIVE_CONTROL_MODE);
+
+      if(controlModeInput != m_controlModeInputPrev){
+         if(controlModeInput == 0){
+            m_pidControlMode = false;
+         }
+         else {
+            m_pidControlMode = true;
+         }
+         
+         m_controlModeInputPrev = controlModeInput;
+      }
+   }
+   ```
+
    * **PID Tuning Reading** (`m_readPidTunningSettings()`): Retrieves PID tuning parameters and setpoints from registers, updating internal settings to refine motor control.
 
    *PID Control Execution*
@@ -1468,6 +1486,58 @@ The `Motors.cpp` file is a comprehensive implementation for controlling and mana
    * **PID Control Execution** (`m_runPidControl()`): Executes PID control logic, adjusting motor speeds based on the difference between setpoints and actual encoder steps.
    * **Step to Centimeter Conversion** (`m_convertStepsToCM()`): Converts encoder steps into centimeters, aiding in precise movement calculations.
    * **PID Computation** (`m_computePID()`): Calculates the PID values and updates motor speeds and movement based on error analysis.
+      * **Process**:
+
+         1. **Time Calculation**: Captures the current time (`millis()`) to calculate the elapsed time (`timeChange`) since the last PID calculation.
+
+         2. **Error Calculation**:
+            * *Proportional Error (`error`)*: The difference between the setpoint and the current position.
+            * *Integral Error (`errorSum`)*: Accumulates over time, adding the current error multiplied by the elapsed time to the previous sum.
+            * *Derivative Error (`errorDiff`)*: The rate of change of the error, computed as the difference between the current error and the previous error divided by the time change.
+
+         3. **PID Output**:
+            Computes the PID output for the motor speed using the formula:
+            * *Proportional*: `kp * error`
+            * *Integral*: `ki * errorSum`
+            * *Derivative*: `kd * errorDiff`
+
+            The sum of these three components gives the new speed for the motor.
+
+         4. **Serial Communication**:
+            * Updates and sends the calculated speed and the current error to specific serial registers, allowing external devices (like a **Raspberry Pi**) to read these values.
+
+         5. **State Update**:
+            * Updates the last known error and the last update time to the current values, preparing for the next loop iteration.
+
+      * **Motor-Specific Execution**:
+
+         The method checks whether it's controlling motor **A** or motor **B** and applies the same *PID* logic individually to each motor. This dual-pathway allows for independent control of each motor based on their specific dynamics and encoder feedback.
+
+      ```cpp
+      void Motors::m_computePID(m_Motor t_motor){
+         if(t_motor == A){
+            unsigned long now = millis();
+            double timeChange = (double)(now - m_lastTimeA);
+         
+            double error = m_setpointA - m_stepsA_cm; // m_stepsA_cm -> input
+            m_errorSumA += (error * timeChange);
+            double errorDiff = (error - m_lastErrorA) / timeChange;
+            
+            double proportional = m_kpA * error;
+            double integral = m_kiA * m_errorSumA;
+            double derivative = m_kdA * errorDiff;
+         
+            m_speedA = proportional + integral + derivative; // m_speedA -> output
+            Serial.println(m_speedA);
+            
+            m_sendDecimalToRegisters(REG_SEND_SPEED_A, REG_SEND_SPEED_A_DEC, m_speedA);
+            m_sendDecimalToRegisters(REG_SEND_DISTANCE_A, REG_SEND_DISTANCE_A_DEC, error);
+         
+            m_lastErrorA = error;
+            m_lastTimeA = now;
+         }
+      ```
+
    * **Speed Setting in Centimeters** (`m_motorSetSpeedCM()`): Converts the computed PID output into a PWM value and sets motor speed, incorporating direction handling.
 
    *Motor Control Functions*
@@ -1591,11 +1661,153 @@ void Joystick::readInput(){
 
 ---
 
-# Scripts
+# Example Scripts
 
 ## Left Wall Follower
 
+The `left_wall_follower.py` script is designed to control a robot equipped with the RPRK platform to follow a wall on its left side while capturing and processing image data to detect shapes and ArUco markers. It leverages the RPRK Python class for hardware interfacing and operates primarily through two main classes: `WallFollowerFSM` for motion control and `RobotVision` for visual processing. This setup illustrates an advanced use of the RPRK platform, showcasing how it can be used for real-world applications in robotics that require both navigational intelligence and visual data processing.
+
+### WallFollowerFSM Class
+
+This class manages the robot's movement in relation to its surroundings using ultrasonic sensors and a state machine approach to maintain a specific distance from the wall on its left.
+
+**Constructor and Initialization:**
+
+   - Initializes thresholds for distance measurements to define proximity to walls.
+   - Sets up a state machine with various states such as moving forward, adjusting to the right or left, and backing up when necessary.
+
+**State Machine:**
+
+   - Each state has an associated **action** (e.g., `move_forward`, `adjust_direction`) and **transition conditions** based on sensor readings.
+   - Transitions between states are driven by the proximity to walls and obstacles detected through infrared and ultrasonic sensors.
+
+   * **State Machine Structure**:
+
+      * The state machine in the `WallFollowerFSM` class is implemented as a *dictionary*, where each state is represented by a unique index and contains:
+
+         - **State Name**: A descriptive label for easy identification and debugging.
+         - **Action Function**: A specific method that executes the primary behavior associated with the state.
+         - **Condition Functions**: A tuple of lambda functions or method references that evaluate conditions to transition to other states.
+         - **Transition Indices**: A tuple indicating the next state to transition to based on the evaluation of the corresponding condition functions.
+      
+      ```python
+      self.state_machine = {
+         0: ["Start", self.initialise, (lambda: self.is_initialised,), (1, 0)],
+         1: ["Move Forward", self.move_forward, (self.obstacle_in_front, self.wall_to_the_right, lambda: not self.wall_to_the_left(), self.left_wall_close, self.left_wall_far), (4, 3, 3, 2, 3, 1)],
+         2: ["Adjust Right", self.adjust_right, (self.obstacle_in_front, self.wall_to_the_right, lambda: not self.wall_to_the_left(), self.left_wall_close, self.left_wall_far), (4, 3, 1, 2, 3, 1)],
+         3: ["Adjust Left", self.adjust_left, (self.obstacle_in_front, self.wall_to_the_right, lambda: not self.wall_to_the_left(), self.left_wall_close, self.left_wall_far), (4, 3, 1, 2, 3, 1)],
+         4: ["Adjust Backwards", self.adjust_backwards, (self.obstacle_in_front, self.wall_to_the_right, lambda: not self.wall_to_the_left(), self.left_wall_close, self.left_wall_far), (4, 3, 1, 2, 3, 1)],
+      }
+      ```
+
+   * **Operation**:
+      * **Execution Loop**: The state machine runs within a loop that continuously evaluates the current state's action and transitions based on real-time sensor data.
+      * **Timing**: Each loop iteration includes a brief sleep interval (e.g., 0.2 seconds) to allow for sensor updates and motor response without rapid oscillations or state churning.
+
+      ```python
+      def main(self):
+        while self.exit_flag == False:
+            current_state = self.state_machine[self.state_index]
+
+            name = current_state[0];
+            print("Current state:", name);
+
+            action = current_state[1]
+            
+            action()
+
+            for index, condition in enumerate(current_state[2] + (lambda: True,)):
+                if condition() == True:
+                    self.state_index = current_state[3][index]
+                    break;
+
+            time.sleep(0.2)
+      ```
+
+**Sensor Integration:**
+
+   - Uses methods to check for obstacles (`obstacle_in_front`), and the presence of walls on either side (`wall_to_the_right`, `wall_to_the_left`).
+   - Adjusts the robot's movements based on these sensor inputs to follow the wall to its left at a consistent distance.
+
+### RobotVision Class
+
+Handles image acquisition and processing to detect specific markers and shapes within the camera's field of view.
+
+**Initialization and Image Acquisition:**
+
+   - Starts continuous image capture from the robot's camera in a separate thread to ensure real-time processing.
+   - Processes each frame to detect ArUco markers and predefined color blobs using OpenCV functions.
+
+**Image Processing:**
+   - Detects ArUco markers and calculates their positions to possibly guide the robot's navigation.
+   - Identifies colored shapes by applying color thresholds and contour detection to recognize specific objects in the robot's environment.
+
+### Integration and Execution:
+
+- The script integrates these two components (`WallFollowerFSM` and `RobotVision`) to create a sophisticated behavior where the robot can navigate while continuously monitoring its environment through visual inputs.
+- Starts the wall following and image processing threads, allowing the robot to autonomously navigate and interact with its environment based on the programmed logic and sensor inputs.
+
+```python
+# Check if the node is executing in the main path
+if __name__ == '__main__':
+    try:
+        rprk = RPRK()
+        wall_follower = WallFollowerFSM(rprk);
+        robot_vision = RobotVision(rprk);
+
+        wall_follower.start_wall_follower()
+        robot_vision.start_robot_vision()
+
+    except KeyboardInterrupt:
+        rprk.motors.set_robot_speed_by_level(0)
+        print('Interrupted!')
+```
+
 ## Keyboard Control With Avoidance
+
+The keyboard_control_with_avoidance.py script is designed to allow manual control of a robotic platform using the RPRK class, while also incorporating obstacle avoidance and visual data processing capabilities. This dual functionality is structured around a finite state machine (FSM) that transitions between different operational states based on sensor inputs and user commands. Additionally, a concurrent thread manages vision processing tasks.
+
+Overview of the Main Components:
+KeyboardControl:
+Processes keyboard input using `sys`, `termios` and `tty` into a function named `getch()` (get character).
+Runs character reading function continually in a separate thread, so that it is non-blocking.
+ObstacleAvoidControlWASD:
+Manages user interactions and the robot's movements with real-time adjustments based on proximity sensors.
+Uses a keyboard thread to non-blocking read user input, allowing dynamic control via the WASD keys.
+RobotVision:
+Handles vision processing, detecting markers and shapes, which can be useful for navigation aids, object recognition, or mapping environments.
+State Machine Description:
+The FSM in ObstacleAvoidControlWASD comprises several states that dictate the robot's behavior based on its environment and user inputs:
+
+Start (State 0):
+Initial setup and configuration.
+Transitions to "Read Input" once the initialization is confirmed.
+Read Input (State 1):
+Processes keyboard inputs for direct control commands (WASD for directions, numerics for speed).
+Conditionally transitions to adjustment states if obstacles or walls are detected, or continues in the current state if clear.
+Adjust Right/Left/Backwards (States 2, 3, 4):
+Executed when the robot needs to navigate away from detected obstacles or walls.
+Adjusts the robot's trajectory by briefly changing its direction to avoid collisions.
+Finalize (State 5):
+Concludes operations, typically triggered by a specific command (like pressing 'P').
+Each state includes an action to perform (like moving or turning), and conditions to check which determine the next state. Transitions depend on sensory inputs such as detecting nearby obstacles or walls, and user commands from the keyboard.
+
+Key Functions and Methods:
+Keyboard Input Handling:
+getch(): Reads a single character from the keyboard without waiting for a newline, enabling reactive control.
+main(): Continuously checks for new keyboard inputs to update the robot's movement commands.
+Movement and Adjustment Functions:
+move_forward(), adjust_right(), adjust_left(), adjust_backwards(): Execute specific movement commands.
+These functions adjust the robot's speed and direction based on the current state and sensor inputs.
+Sensor Check Functions:
+obstacle_in_front(), wall_to_the_right(), wall_to_the_left(): Return boolean values based on ultrasonic and infrared sensor readings to detect proximity to obstacles.
+Vision Processing:
+main(): In RobotVision, captures frames from the camera, processes them to detect ArUco markers, colors, and shapes.
+detect_aruco(), detect_colour(), detect_shapes(): Specific methods for image processing tasks.
+Execution and Threading:
+The script initializes the RPRK system and then starts the wasd_control and robot_vision as separate threads.
+This threading allows the robot to simultaneously respond to direct user inputs and process visual data, making it versatile for tasks like remote operation or automated patrol in environments where visual cues are critical.
+The architecture of the system makes it highly adaptable, capable of handling complex tasks like navigation and object detection while being directly controlled by a user. This setup is ideal for environments where both precise control and autonomous behavior are required.
 
 ## PID Wheel Control
 
