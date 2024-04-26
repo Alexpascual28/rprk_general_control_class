@@ -1035,84 +1035,84 @@ These functions primarily deal with image manipulation techniques, which prepare
 
 10. `closing(self, mask)`
 
-   This function applies a morphological closing operation to an image (`mask`), which is useful for closing small holes or gaps within detected features in an image:
+      This function applies a morphological closing operation to an image (`mask`), which is useful for closing small holes or gaps within detected features in an image:
 
-   * **Parameter**: `mask`: A binary image where the white areas represent the features to be processed.
-   * **Process**: Uses a kernel (a matrix of ones) to perform dilation followed by erosion, effectively closing gaps.
-   * **Output**: Returns the mask after the closing operation.
-   * **Purpose**: Improves the appearance of detected features, making subsequent processing more robust.
+      * **Parameter**: `mask`: A binary image where the white areas represent the features to be processed.
+      * **Process**: Uses a kernel (a matrix of ones) to perform dilation followed by erosion, effectively closing gaps.
+      * **Output**: Returns the mask after the closing operation.
+      * **Purpose**: Improves the appearance of detected features, making subsequent processing more robust.
 
-   ```python
-   def closing(self, mask):
-      kernel = np.ones((7,7),np.uint8) 
-      closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-      return closing
-   ```
+      ```python
+      def closing(self, mask):
+         kernel = np.ones((7,7),np.uint8) 
+         closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+         return closing
+      ```
 
 11. `opening(self, mask)`
 
-   This function applies a morphological opening operation to a mask, ideal for removing small noise points in an image:
+      This function applies a morphological opening operation to a mask, ideal for removing small noise points in an image:
 
-   * **Parameter**: `mask`: A binary image.
-   * **Process**: Uses a kernel to perform erosion followed by dilation, removing small noise elements.
-   * **Output**: Returns the mask after the opening operation.
-   * **Purpose**: Cleans up noise in binary images, enhancing the clarity of the features.
+      * **Parameter**: `mask`: A binary image.
+      * **Process**: Uses a kernel to perform erosion followed by dilation, removing small noise elements.
+      * **Output**: Returns the mask after the opening operation.
+      * **Purpose**: Cleans up noise in binary images, enhancing the clarity of the features.
 
 12. `blurring(self, mask)`
 
-   This function applies Gaussian blurring to an image (`mask`), which is often used to reduce image noise and detail:
+      This function applies Gaussian blurring to an image (`mask`), which is often used to reduce image noise and detail:
 
-   * **Parameter**: `mask`: The image to be blurred.
-   * **Process**: Applies a Gaussian blur filter which uses a Gaussian kernel.
-   * **Output**: Returns the blurred image.
-   * **Purpose**: Useful for reducing high-frequency noise, making some subsequent image processing algorithms more effective.
+      * **Parameter**: `mask`: The image to be blurred.
+      * **Process**: Applies a Gaussian blur filter which uses a Gaussian kernel.
+      * **Output**: Returns the blurred image.
+      * **Purpose**: Useful for reducing high-frequency noise, making some subsequent image processing algorithms more effective.
 
-   ```python
-   def blurring(self, mask):
-      blur = cv2.GaussianBlur(mask,(5,5),0)
-      return blur
-   ```
+      ```python
+      def blurring(self, mask):
+         blur = cv2.GaussianBlur(mask,(5,5),0)
+         return blur
+      ```
 
 13. `eroding(self, mask)`
 
-   This function performs an erosion operation on a mask, which can be used to erode the boundaries of regions of foreground pixels:
+      This function performs an erosion operation on a mask, which can be used to erode the boundaries of regions of foreground pixels:
 
-   * **Parameter**: `mask`: A binary image.
-   * **Process**: Applies an erosion filter using a defined kernel, which shrinks the areas of white pixels.
-   * **Output**: Returns the image after erosion.
-   * **Purpose**: Helps in cleaning up smaller pixel artifacts and separating objects that are touching.
+      * **Parameter**: `mask`: A binary image.
+      * **Process**: Applies an erosion filter using a defined kernel, which shrinks the areas of white pixels.
+      * **Output**: Returns the image after erosion.
+      * **Purpose**: Helps in cleaning up smaller pixel artifacts and separating objects that are touching.
 
-   ```python
-   def eroding(self, mask):
-      kernel = np.ones((5,5),np.uint8)
-      erosion = cv2.erode(mask, kernel, iterations = 1)
-      return erosion
-   ```
+      ```python
+      def eroding(self, mask):
+         kernel = np.ones((5,5),np.uint8)
+         erosion = cv2.erode(mask, kernel, iterations = 1)
+         return erosion
+      ```
 
 14. `dilating(self, mask)`
 
-   This function performs a dilation on a mask, expanding the area of white regions, which is often used after an erosion to bring the image closer to its original size:
+      This function performs a dilation on a mask, expanding the area of white regions, which is often used after an erosion to bring the image closer to its original size:
 
-   * **Parameter**:
-   `mask`: A binary image.
-   * **Process**: Uses a dilation filter with a specified kernel to expand the areas of white pixels.
-   * **Output**: Returns the dilated image.
-   * **Purpose**: Useful for joining adjacent objects, filling small holes, or expanding features after erosion.
+      * **Parameter**:
+      `mask`: A binary image.
+      * **Process**: Uses a dilation filter with a specified kernel to expand the areas of white pixels.
+      * **Output**: Returns the dilated image.
+      * **Purpose**: Useful for joining adjacent objects, filling small holes, or expanding features after erosion.
 
 15. `canny_edge_detection(self, mask)`
 
-   This function applies the Canny edge detection algorithm to a mask, which identifies the edges of objects within an image:
+      This function applies the Canny edge detection algorithm to a mask, which identifies the edges of objects within an image:
 
-   **Parameter**: `mask`: The image from which edges are to be detected.
-   **Process**: Uses the `Canny` algorithm to detect a wide range of edges in the image.
-   **Output**: Returns an image with the detected edges highlighted.
-   **Purpose**: Critical for feature detection and image analysis tasks where edges define object boundaries.
+      **Parameter**: `mask`: The image from which edges are to be detected.
+      **Process**: Uses the `Canny` algorithm to detect a wide range of edges in the image.
+      **Output**: Returns an image with the detected edges highlighted.
+      **Purpose**: Critical for feature detection and image analysis tasks where edges define object boundaries.
 
-   ```python
-   def canny_edge_detection(self, mask):
-      edges = cv2.Canny(mask,100,200)
-      return edges
-   ```
+      ```python
+      def canny_edge_detection(self, mask):
+         edges = cv2.Canny(mask,100,200)
+         return edges
+      ```
 
 **CSV Colour Data Management**
 
@@ -1297,23 +1297,311 @@ class InfraredSensor:
             return getRegister(self.REG_SEND_IR)
 ```
 
-### interfaceRPRK.ino (Arduino)
+## interfaceRPRK.ino (Arduino)
 
+The `interfaceRPRK.ino` sketch runs on the Arduino and acts as the low-level controller managing direct hardware interactions. This sketch is responsible for:
 
+* **Motor Control**: It receives speed and direction commands from the Raspberry Pi and adjusts the motors accordingly using PWM outputs and direction pins.
+* **Sensor Management**: It reads from various sensors like ultrasonics and IR sensors and sends this data back to the Raspberry Pi.
+* **Peripheral Handling**: Manages other peripherals as necessary, depending on the robot's hardware configuration.
+
+This sketch uses registers to manage data communication with the Raspberry Pi, which includes sending sensor readings back to the Pi and receiving motor control commands and other directives from the Pi.
+
+The `interfaceRPRK.ino` file is structured to control various aspects of a robotics platform, specifically designed for the RPRK (Raspberry Pi Robotics Kit). It integrates multiple components such as infrared sensors, a joystick, motors, and ultrasonic sensors into a cohesive system, allowing for modular interaction and control of a robot. Here's a detailed breakdown of the code:
+
+**Includes and Global Object Declarations**
+
+The script begins by including header files for various modules:
+
+- `Infrared.h`: Manages infrared sensor interactions.
+- `Joystick.h`: Handles inputs from a joystick.
+- `Motors.h`: Controls the motor outputs.
+- `Ultrasonics.h`: Manages ultrasonic sensors for distance measurement.
+
+It also includes `ARB.h` for the `Arduino Robotics Board` specific functions and `Wire.h` for I2C communication, essential for interfacing with certain sensors.
+
+Objects for each of the components are instantiated globally:
+
+- `Infrared infrared(IR_BUS_NUMBER)`: An infrared object is created, initialized with a bus number for I2C.
+- `Joystick joystick`: A joystick object for managing joystick input.
+- `Motors motors`: A motor controller object.
+- `Ultrasonics ultrasonics`: An object to handle ultrasonic sensors.
+
+**Setup Function**
+
+The `setup()` function initializes the system:
+
+- `ARBSetup(true)`: Initializes the Arduino Robotics Board with serial communications enabled. This is a custom function from the `ARB.h` library, setting up necessary configurations and enabling serial communication for debugging and telemetry.
+- `Serial.begin(9600)`: Starts serial communication at 9600 baud rate, typical for Arduino projects for debugging output to the serial monitor.
+- Initializations for each component (`joystick.initialize()`, `motors.initialize()`, etc.) set up each module to be ready for operation, likely configuring pins and setting initial states.
+
+**Loop Function**
+
+The loop() function is where the continuous operation of the robot occurs:
+
+- `infrared.readIR()`: Reads data from the infrared sensor. This involves receiving signals from the RPRK IR sensor.
+- `ultrasonics.readUltrasonics()`: Measures distances using ultrasonic sensors, important for obstacle avoidance or navigation.
+- `joystick.readInput()`: Checks for input from the joystick, which could direct the robot’s movement or other actions.
+- `motors.runMotors()`: Actuates motors based on inputs from other sensors or the joystick.
+- `serialUpdate()`: This function is called to handle any serial communication tasks, which includes sending sensor readings or statuses back to a host microcontroller in the ARB.
+- `delay(0.1)`: Introduces a very short delay (0.1 milliseconds) to stabilize the loop execution. This is critical in real-time systems to prevent the microcontroller from executing the loop too fast, which can lead to missed sensor readings or erratic motor behavior.
+
+### Ultrasonics.cpp Module
+
+The `Ultrasonics.cpp` file in the `interfaceRPRK` directory is one of the modules instantiated and used by `interfaceRPRK.ino`, as part of the system designed to handle ultrasonic sensors on the RPRK robot. The file includes both the definitions of how these sensors are initialized and read, as well as how their data is processed and stored. Here’s a detailed breakdown of the code:
+
+**Includes and Constructor**
+
+* **Includes**: The file includes the `Ultrasonics.h` header file which declares the class structure and its methods. It also includes `ARB.h` for accessing specific functions or definitions related to the **Arduino Robotics Board**, and `Wire.h` for I2C communication.
+* **Constructor (`Ultrasonics::Ultrasonics()`)**: It is an empty constructor that runs when an object of `Ultrasonics` class is created.
+
+**Public Methods**
+
+- `initialize()`: This method is used to set up the ultrasonic sensors, specifically initializing serial registers used to communicate distances to other parts of the system, such as a central microcontroller or a Raspberry Pi.
+- `readUltrasonics()`: This method manages the process of reading the ultrasonic sensors. It first calls a private method to fetch the distances (`m_getUltrasoundDistances()`), then checks if the newly read distances are different from the previous values. If they are different, it updates specific registers with the new distance values. This method ensures that the system updates with new data only when there has been a change, which can help in reducing unnecessary data traffic and processing.
+
+**Private Members**
+
+- `m_initializeSerialRegisters()`: This function initializes registers used for sending ultrasonic sensor data. It sets the initial values of these registers to zero, which may represent a starting state where no distance is measured.
+- `m_getUltrasoundDistances()`: This function is the core of the ultrasonic reading process. It operates the ultrasonic sensors by sending pulses and measuring the response time, which is then converted into a distance:
+   - **Pin Mode Changes**: The function sets pins as output to send pulses and then switches them back to input to read the returning echo.
+   - **Sending Pulses**: It involves pulling the pin low, then high, and low again in quick succession to generate a sonic pulse.
+   - **Reading Echo**: It uses the `pulseIn()` function to measure how long it takes for the echo to return.
+   - **Distance Calculation**: The time measured is then converted into a distance measurement in centimeters using the `uSecToCM()` function, which is comes from `ARB.cpp` and calculates distance based on the speed of sound.
+
+   ```cpp
+   // C++
+   void Ultrasonics::m_getUltrasoundDistances(){
+      int duration[2], cm[2]; // Setup variables for results
+
+      // Set the pin to output, bring it low, then high, then low to generate pulse
+      pinMode(USONIC1, OUTPUT);
+      digitalWrite(USONIC1, LOW);
+      delayMicroseconds(2);
+      digitalWrite(USONIC1, HIGH);
+      delayMicroseconds(15);
+      digitalWrite(USONIC1, LOW);
+
+      // The same pin is used to read back the returning signal, so must be set back to input
+      pinMode(USONIC1, INPUT);
+      duration[0] = pulseIn(USONIC1, HIGH);
+
+      // Convert to cm using helper function
+      cm[0] = uSecToCM(duration[0]);
+      m_distances[0] = cm[0];
+   ```
+
+**Data Handling**
+
+Ultrasonic sensor data is being interfaced through the use of registers to send data (`putRegister()`) with the Raspberry Pi via a serial communication protocol, for decision-making processes and further data handling.
+
+### Motors.cpp Module
+
+The `Motors.cpp` file is a comprehensive implementation for controlling and managing motors on the RPRK robotics platform, specifically for an Arduino-based setup.  It includes functionalities for PID control, direct motor control, feedback handling via encoders, and communication with external controllers through registers. Here’s a detailed explanation of the key components of the code:
+
+**Public Methods**
+
+   *Includes and Constructor*
+
+   * **Includes**: The file includes `Motors.h` for the class definition, `ARB.h` for the Arduino Robotics Board, `Wire.h` for I2C communications, and `PID_v1.h` for PID control, although the PID lines are commented out in this version.
+   * **Constructor (`Motors::Motors()`)**: The `Motors` constructor is empty, since initialization is handled entirely through the `initialize()` method.
+
+   *Initializations*
+
+   * **Static Member Variables**: These include direction defaults and volatile variables for tracking motor steps. The `volatile` keyword is used because these variables are modified within interrupt service routines (**ISRs**).
+   * **Initialize Method (`initialize()`)**: This sets up pin modes, initializes components, attaches interrupts for encoders, and prepares serial registers for communication.
+
+   ```cpp
+   // C++
+   void Motors::initialize(){
+      m_setPinModes();
+      m_initializeComponents(); // Initializes values
+      m_attachInterrupts(); // Attaches interrupts
+      m_initializeSerialRegisters(); // Initialize serial registers
+   }
+   ```
+
+   *Motor Operation*
+
+   * **Run Motors (`runMotors()`)**: Main function. This function consolidates the operations needed to control the motors each loop. It first runs `m_readControlModeRegister()` to determine the control mode commanded by the Pi. Based on the value of the control mode register, stored in `m_pidControlMode`, it runs the robot in different ways. If `m_pidControlMode` is **true**, it runs the **PID** robot control algorithm, if its **false**, it reads direction inputs, PWM signals, and speed settings, and handles the encoder counts instead for *non-PID* control.
+
+   ```cpp
+   // C++
+   void Motors::runMotors(){
+      m_readControlModeRegister();
+
+      if(m_pidControlMode == true){
+         m_readPidTunningSettings();
+         m_runPidControl();
+      }
+      else {
+         // Wheels
+         m_readWheelDirections();
+         m_readPWMSignals();
+
+         // General movement
+         m_readSpeedLevelValue();
+         m_readDirectionInput();
+
+         // Encoders
+         m_setAbsoluteEncoderSteps();
+      }
+   }
+   ```
+
+**Private Methods**
+
+   *Run During Initialisation (`initialize()`)*
+
+   * **Pin Setup (`m_setPinModes()`)**: Configures the motor and encoder pins for input and output.
+   * **Component Initialization (`m_initializeComponents()`)**: Sets initial motor states (e.g., stopped, forward) and resets encoder counts.
+   * **Interrupt Handling (`m_attachInterrupts()`)**: Attaches interrupts to the encoder pins to handle step counting dynamically as the motors run.
+   * **Serial Registers Initialization (`m_initializeSerialRegisters()`)**: Sets up registers for interfacing with another microcontroller or a computer, to report motor states and receive commands.
+
+   *Control Mode and PID Setting Functions*
+
+   * **Control Mode Reading** (`m_readControlModeRegister()`): Reads and updates the control mode from a register, switching between PID control and manual control based on input.
+   * **PID Tuning Reading** (`m_readPidTunningSettings()`): Retrieves PID tuning parameters and setpoints from registers, updating internal settings to refine motor control.
+
+   *PID Control Execution*
+
+   * **PID Control Execution** (`m_runPidControl()`): Executes PID control logic, adjusting motor speeds based on the difference between setpoints and actual encoder steps.
+   * **Step to Centimeter Conversion** (`m_convertStepsToCM()`): Converts encoder steps into centimeters, aiding in precise movement calculations.
+   * **PID Computation** (`m_computePID()`): Calculates the PID values and updates motor speeds and movement based on error analysis.
+   * **Speed Setting in Centimeters** (`m_motorSetSpeedCM()`): Converts the computed PID output into a PWM value and sets motor speed, incorporating direction handling.
+
+   *Motor Control Functions*
+
+   * **Direction and PWM Handling (`m_readWheelDirections()`,`m_readPWMSignals()`,`m_readSpeedLevelValue()`, `m_readDirectionInput()`)**: These functions read values from registers (set by another part of the program or another device) to adjust motor directions and speed dynamically.
+   * **Speed and Direction Commands (`m_moveForward()`,`m_moveBackward()`,`m_moveLeft()`,`m_moveRight()`, `m_stopRobot()`)**: Additional functions translate high-level commands (e.g., move forward, turn left) into motor directions and speeds.
+
+   *Encoder and Distance Handling*
+
+   * **Absolute Encoder Steps** (`m_setAbsoluteEncoderSteps()`, `m_resetEncoders()`): Updates the absolute encoder steps in the registers and resets them if instructed by an input signal from another register.
+   * **Sending and Reading Large Numbers** (`m_sendEncoderStepsToRegisters(...)`, `m_read16BitNumber(...)`): Handles communication with registers to send and read large numbers, crucial for precise motor control and feedback.
+   * **Decimal Data Management** (`m_sendDecimalToRegisters(...)`, `m_readDecimalNumberFromRegisters(...)`): Sends and reads decimal numbers split into whole and fractional parts to and from registers, used for precise control and monitoring.
+   * **Distance Calculation (`m_stepsToCentimetres(int t_steps)`)**: Converts encoder steps into physical distance using the wheel's circumference and gear ratios, a critical component for precise movement.
+
+   *Utility Functions*
+
+   * **Adjust Speed (`m_adjustSpeed(int t_speedLevel)`)**: Calculates PWM values based on a desired speed level and updates the motors.
+   * **Set Motor Direction (`m_motorSetDir(m_Motor t_motor, m_Direction t_dir)`)**: Updates the direction of motor rotation.
+
+   *Interrupt Service Routines (ISRs)*
+
+   * **Encoder ISRs (`m_ENCA_ISR()`, `m_ENCB_ISR()`)**: Detect changes in encoder outputs (indicative of wheel rotation) and update step counts. This feedback is crucial for closed-loop control systems to ensure the robot moves accurately according to the commands.
+
+### Infrared.cpp Module
+
+The `Infrared.cpp` file is a part of the RPRK Arduino-based robotics interface, specifically managing infrared (**IR**) sensor interactions. It's built to handle initializations, read sensor data via I2C, and communicate these readings to a central system via serial communication. Here's a detailed breakdown of the components in the `Infrared.cpp` file:
+
+**Public Methods**
+
+* **Constructor** (`Infrared::Infrared(int t_irBusNumber)`): Initializes the infrared sensor class with a specific I2C bus number, facilitating multi-sensor setups.
+* **Initialization** (`initialize()`): Sets up serial registers for communication and configures I2C settings specific to the IR sensor's requirements.
+
+```cpp
+// C++
+void Infrared::initialize(){
+    m_initializeSerialRegisters(); // Initialize serial registers
+    m_setupI2C(m_irBusNumber);
+}
+```
+
+* **Read IR Sensor** (`readIR()`): Captures distance measurements from the IR sensor. If the read value differs from the previous, it updates the relevant register for external communication.
+
+```cpp
+// C++
+void Infrared::readIR(){
+    int infraredDistance = m_readI2CSensor(m_irBusNumber);
+    if (infraredDistance != m_infraredDistancePrev){
+        putRegister(REG_SEND_IR, infraredDistance);
+        m_infraredDistancePrev = infraredDistance;
+    }
+}
+```
+
+**Private Methods**
+
+* **Serial Register Initialization** (`m_initializeSerialRegisters()`): Prepares the initial communication state by setting up default values in the serial registers.
+* **I2C Setup** (`m_setupI2C(int t_bus_number)`): Configures the I2C bus for communication with the IR sensor, ensuring the sensor is ready to transmit data.
+* **Read I2C Sensor** (`m_readI2CSensor(int t_bus_number)`): Handles the low-level I2C communication, extracting the sensor data and calculating the distance based on sensor-specific parameters.
+
+```cpp
+// C++
+int Infrared::m_readI2CSensor(int t_bus_number){
+    setI2CBus(t_bus_number); // Set the bus we are accessing
+    Wire.beginTransmission(IR_SENSOR_ADDRESS);
+    Wire.write(IR_SENSOR_DISTANCE_REG);
+    Wire.endTransmission();
+    Wire.requestFrom(IR_SENSOR_ADDRESS, 2);
+    while(Wire.available() < 2);
+    byte high = Wire.read();
+    byte low = Wire.read();
+    int distance = (high * 16 + low) / 16 / (int)pow(2, m_shift);
+    return distance;
+}
+```
+
+### Joystick.cpp Module
+
+The `Joystick.cpp` module integrates joysticks control and data forwarding using the *ARB* platform, facilitating user input for navigation and control. It is focused on initializing the joystick, reading input states, and handling these inputs through interrupt service routines.
+
+These routines and methods ensure that joystick inputs are efficiently read and communicated within the **RPRK** robotic system, allowing for responsive control mechanisms that are critical for interactive tasks and navigation. The use of ISRs for handling joystick inputs minimizes the delay and processing overhead in the main program loop, enhancing the system's responsiveness.
+
+**Public Methods**
+
+* **Constructor** (`Joystick::Joystick()`): Initializes the joystick object; actual setup is done in the `initialize()` method to separate object creation from hardware configuration.
+* **Initialization** (`initialize()`): Prepares the joystick for operation by setting pin modes, initializing components, attaching interrupts for button presses, and setting up serial communication registers.
+
+```cpp
+// C++
+void Joystick::initialize(){
+    m_setPinModes();
+    m_initializeComponents();
+    m_attachInterrupts();
+    m_initializeSerialRegisters();
+}
+```
+
+* **Read Input** (`readInput()`): Checks the state of joystick buttons, updates the corresponding serial registers, and resets button states to ensure each press is only registered once.
+
+```cpp
+// C++
+void Joystick::readInput(){
+    if(m_buttons.left == true){
+        Serial.println("Joystick left");
+        putRegister(REG_SEND_DATA_JOYSTICK, 4);
+        m_buttons.left = false;
+    }
+    // Additional button checks follow the same pattern
+}
+```
+
+**Private Methods**
+
+* **Set Pin Modes** (`m_setPinModes()`): Configures joystick button pins as inputs to the Arduino.
+* **Component Initialization** (`m_initializeComponents()`): Activates internal pull-up resistors to manage the default high state of the buttons.
+* **Attach Interrupts** (`m_attachInterrupts()`): Connects hardware interrupts to the joystick buttons, triggering on the falling edge to detect button presses.
+* **Serial Register Initialization** (`m_initializeSerialRegisters()`): Sets initial values for the serial registers that communicate joystick states to other system components, such as a Raspberry Pi.
+
+**Interrupt Service Routines (ISRs)**
+
+* **Directional Button ISRs** (`m_LEFT_ISR()`, `m_RIGHT_ISR()`, `m_UP_ISR()`, `m_DOWN_ISR()`): These ISRs set flags corresponding to each button press, enabling the main loop to process these signals asynchronously.
 
 ---
 
-## Scripts
+# Scripts
 
-### Left Wall Follower
+## Left Wall Follower
 
-### Keyboard Control With Avoidance
+## Keyboard Control With Avoidance
 
 ## PID Wheel Control
 
 ---
 
-##  Contributing
+#  Contributing
 
 Contributions are welcome! Here are several ways you can contribute:
 
