@@ -777,17 +777,421 @@ These functions are used to interface with the Arduino's PID control functions a
          * `value`: The target setpoint value.
       * **Process**: The value is sent to two registers: one for the whole part and one for the fractional part of the setpoint, to maintain precision. This split allows for fine-grained control over the setpoint, accommodating both integer and decimal values.
 
-Camera Class:
-Initialization: Configures the Raspberry Pi camera and prepares it for continuous image capture.
-Image Processing: Methods for detecting markers (Aruco), blobs, and colors within the camera feed. Uses OpenCV for image analysis.
+### Camera (`Camera`) Submodule
 
-Ultrasonic Class:
+The `Camera` subclass within the `RPRK` class contains a variety of functions designed for initiating and handling camera operations, image processing, and feature detection.
+
+**Image Capturing**: Configures the Raspberry Pi camera and prepares it for frame capturing and for continuous image capture.
+
+**Image Processing**: Methods for detecting markers (Aruco), blobs, and colors within the camera feed. Uses OpenCV for image analysis.
+
+**Initialisation**
+
+The `1. __init__` function in the `Camera` subclass of the `RPRK` class is designed to initialize the camera and set up various parameters essential for its operation. This function plays a crucial role in preparing the camera for capturing images and processing them. Here's a detailed breakdown of what happens during the initialization:
+
+*Setup of Camera Hardware and Configuration*
+
+* **Camera Initialization**: The camera is initialized using the `picamera.PiCamera()` constructor. This object represents the camera hardware connected to the **Raspberry Pi**.
+
+* **Camera Orientation and Resolution Setup**: The orientation of the camera is set to 180 degrees (which can be adjusted depending on how the camera is mounted). The resolution is configured to a standard definition (640x480 pixels) to balance between quality and processing speed. Higher resolutions can be set if more detail is needed.
+
+* **Frame Rate Configuration**: The framerate is set to 32 frames per second, which offers a good trade-off between smooth video capture and manageable data rates for processing.
+
+*Preparation for Image Processing:*
+
+* **Warm-up Time**: A brief warm-up time (0.1 seconds) is allowed for the camera to stabilize before it starts capturing images. This step ensures that the camera sensor's lighting and color adjustments are stable.
+
+* **Setting up Aruco Detection**: The *Aruco* dictionary (used for marker detection) and detection parameters are set up. These are crucial for tasks that involve detecting Aruco markers, which are often used for position tracking and scene understanding in robotics.
+
+*Threading for Continuous Image Capture:*
+
+* **Thread Initialization**: A separate thread for continuous image capture is set up but not started immediately (`camera_thread`). This thread will handle the ongoing capture process, allowing the main program to run other tasks without interruption.
+
+* **Shared Image Buffer Setup**: The `picamera.array.PiRGBArray` is used as a buffer for the captured images. This buffer is cleared after each capture cycle to prepare for the next frame, ensuring that the memory does not overflow and that each image is processed fresh.
+
+*Additional Configurations for Advanced Processing:*
+
+* **Multithreading Support in X11**: On systems that use X11 (typically Unix-like operating systems), threading support is enabled specifically for GUI operations, which are used when displaying images from the camera. This is set up using `ctypes.CDLL('libX11.so.6').XInitThreads()`.
+
+* **CSV File for HSV Values**: If specific color detection tasks are required, the camera setup includes creating or reading a *CSV* file that stores HSV color values. These values are essential for color-based object detection and tracking.
+
+**Image Capture**
+
+These functions collectively handle various aspects of image acquisition and display, offering methods for both continuous and on-demand image capture, display capabilities, and real-time access to camera data, all critical for various robotic vision tasks.
+
+2. `start_image_acquisition(self, show_feed = True)`
+
+   This function starts the *continuous image acquisition* process in a separate *thread*, which is essential for real-time image processing and video feed:
+
+   * **Parameter**: `show_feed` (*boolean*) decides whether to display the video feed in a window.
+   * **Process**: It initializes and starts the `camera_thread` which continuously captures images using the `capture_frame_continuous` method. If `show_feed` is *True*, the images are displayed as they are captured.
+   * **Purpose**: Allows for autonomous, continuous image capture in the background, enabling the main application to process these images simultaneously or perform other tasks.
+
+   ```python
+   # Start continuous image acquisition
+   def start_image_acquisition(self, show_feed = True):
+      self.camera_thread = threading.Thread(target=self.capture_frame_continuous, args=(show_feed,))
+      self.camera_thread.start()
+   ```
+
+3. `get_current_image(self)`
+
+   This function retrieves the most recent image captured by the camera:
+
+   * **Output**: Returns the current image stored in `self.current_image`, which is updated in real-time by the *continuous image capture* thread.
+   * **Purpose**: Provides access to the latest camera frame for processing or analysis at any point in time.
+
+4. `capture_frame_continuous(self, show_frame = True)`
+
+   This function is designed to continuously capture frames from the camera:
+
+   * **Parameter**: `show_frame` (*boolean*) specifies whether to display each captured frame in a window.
+   * **Process**: It loops indefinitely, capturing frames and updating `self.current_image`. If `show_frame` is *True*, each frame is displayed using OpenCV's `cv2.imshow`.
+   * **Purpose**: Serves as the core function for the *camera thread*, ensuring continuous image capture that can be displayed or processed in real time.
+
+   ```python
+   def capture_frame_continuous(self, show_frame = True):
+      try:
+            # Capture frames from the camera
+            for frame in self.camera.capture_continuous(self.rawCapture, format="bgr", use_video_port=True):
+               self.current_image = frame.array
+               
+               # Show the frame if show_frame is true
+               if show_frame == True: cv2.imshow("Current Frame", self.current_image)
+
+               # Clear the stream in preparation for the next frame
+               self.rawCapture.truncate(0)
+
+               # if the `q` key was pressed, break from the loop
+               if cv2.waitKey(1) & 0xFF == ord("q"):
+                  break
+      finally:
+            print("Closing camera")
+            self.camera.close()
+   ```
+
+5. `show_image(self, frame_name, image)`
+
+   This function displays an image in a named window, useful for debugging or user interface purposes:
+
+   * **Parameters**:
+      * `frame_name` (*string*): The title of the window in which the image will be displayed.
+      * `image`: The image data to be shown.
+   * **Process**: Utilizes *OpenCV’s* `cv2.imshow` to show the image in a window with the specified name.
+   * **Purpose**: Allows for visual verification of image data and features, useful in testing and demonstration scenarios.
+
+* *21*. `capture_frame(self, show_frame = True)`
+
+   This function captures a single frame from the camera, an alternative to *continuous capture* for applications needing specific timing or less frequent captures:
+
+   * **Parameter**: `show_frame` (*boolean*) indicates whether to display the captured frame.
+   * **Process**: Captures one frame using the camera’s settings, optionally displaying it immediately if `show_frame` is *True*.
+   * **Output**: Returns the captured image, and optionally displays it.
+   * **Purpose**: Provides flexibility in image capture for use cases where continuous capture is unnecessary or too resource-intensive.
+
+**Feature Detection**
+
+These functions handle specific tasks related to image processing and feature detection, essential for tasks requiring visual context understanding and object interaction.
+
+6. `detect_aruco(self, image, frame_name="Aruco Frame", show_frame = True)`
+
+   This function is designed to detect Aruco markers within a given image:
+
+   * **Parameters**:
+      * `image`: The input image in which to detect Aruco markers.
+      * `frame_name` (optional): The window title where the detection results are displayed.
+      * `show_frame` (optional): Whether to display the detection results in a window.
+   * **Process**:
+      * Converts the image to grayscale.
+      * Uses the pre-configured Aruco dictionary to find markers.
+      * Draws the detected markers on the image if found.
+   * **Output**: Returns the image with detected markers highlighted, along with the positions of the corners of each marker and their IDs.
+   * **Purpose**: Useful for applications needing positional context within the environment, such as navigation or interaction tasks.
+
+   ```python
+   def detect_aruco(self, image, frame_name="Aruco Frame", show_frame = True):
+      gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+      corners,ids,rejectedImgPoints = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_parameters)
+      
+      frame_markers = aruco.drawDetectedMarkers(image, corners, ids)
+      
+      self.frame_count += 1
+      average_fps = self.frame_count / ( time.time() - self.start_time )
+      cv2.putText(frame_markers,"%2.1f fps" % average_fps, (50,50),cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,255),2,cv2.LINE_AA)
+
+      # Show the frame
+      if show_frame == True: cv2.imshow(frame_name, frame_markers)
+
+      return frame_markers, corners, ids
+   ```
+
+7. `detect_blobs(self, image, colour_name, frame_name="Blobs Frame", show_frame = True)`
+
+   This function identifies color blobs in an image based on predefined HSV ranges:
+
+   * **Parameters**:
+      - `image`: The input image to process.
+      - `colour_name`: The name of the color to detect (must match keys in the HSV value CSV).
+      - `frame_name` (optional): The title for the display window.
+      - `show_frame` (optional): Determines whether to display the detected blobs.
+   **Process**:
+      - Converts the image to HSV color space.
+      - Applies a mask based on the HSV range associated with `colour_name`.
+      - Uses `cv2.SimpleBlobDetector` to find blobs in the masked image.
+   * **Output**: Returns an image with keypoints highlighted on detected blobs.
+   * **Purpose**: Allows for the identification of objects based on clusters, useful in tasks like object sorting or environment interaction.
+
+8. `detect_colour(self, image, colour_name, frame_name="colour frame", image_format="hsv", show_frame = True)`
+
+   This function detects areas of a specific color within an image:
+
+   **Parameters**:
+      - `image`: The image to process.
+      - `colour_name`: Identifies the color to detect.
+      - `frame_name`, `image_format`, and `show_frame`: Optional parameters for customization of the output and display.
+   * **Process**:
+      - Applies color thresholding based on predefined HSV values accessed from the *CSV* file for the specified color.
+      - Optionally displays the resulting mask or the masked part of the original image.
+   * **Output**: Returns the mask and the masked image.
+   * **Purpose**: Useful for applications requiring color-based object recognition or tracking.
+
+9. `detect_shapes(self, mask, shape_name, frame_name="Shape Frame", show_frame = False)`
+
+   This function identifies geometric shapes within a given mask:
+
+   * **Parameters**:
+      - `mask`: The binary image in which to look for shapes.
+      - `shape_name`: The type of shape to detect (e.g., *triangle*, *rectangle*).
+      - `frame_name` and `show_frame`: Optional for displaying results.
+   * **Process**:
+      - Applies contour detection to find shapes.
+      - Filters contours based on the specified shape_name.
+   * **Output**: Returns a list of detected shapes with their characteristics (e.g., location, number of sides).
+   * **Purpose**: Facilitates tasks involving shape recognition or spatial layout understanding.
+
+   ```python
+   def detect_shapes(self, mask, shape_name, frame_name="Shape Frame", show_frame = False):
+      possible_shapes = {'triangle': 3, 'rectangle': 4, 'star': 10, 'circle': 11}
+
+      if shape_name in possible_shapes:
+            shapes = []
+
+            mask = self.dilating(mask)
+            mask = self.opening(mask)
+
+            mask = self.eroding(mask)
+            mask = self.closing(mask)
+            
+            mask = self.canny_edge_detection(mask)
+            mask = self.dilating(mask)
+
+            contours, h = cv2.findContours(mask, 1, cv2.CHAIN_APPROX_SIMPLE)
+            contours.sort(key = len)
+
+            shape_counter = 0
+
+            for contour in contours[-3:]:
+               #Amount of edges
+               approx = cv2.approxPolyDP(contour, 0.02*cv2.arcLength(contour, True), True)
+
+               #Center locations
+               M = cv2.moments(contour)
+               if M['m00'] == 0.0:
+                  continue
+               centroid_x = int(M['m10']/M['m00'])
+               centroid_y = int(M['m01']/M['m00'])
+
+               if (len(approx) == possible_shapes.get(shape_name)) or (len(approx) >= 11 and shape_name == 'circle'):
+                  shape = [f"{shape_name} {shape_counter}", contour, centroid_x, centroid_y, len(approx)]
+                  shapes.append(shape)
+                  shape_counter += 1
+
+            return shapes
+      
+      else:
+            print("Incorrect shape value.")
+            return None
+   ```
+
+* *20*. `generate_aruco_tags(self, filename)`
+
+   This function generates a PDF file with printable Aruco markers:
+
+   * **Parameter**: `filename`: The base name for the output PDF file.
+   * **Process**: Retrieves a specified Aruco dictionary. Generates multiple Aruco markers and arranges them in a PDF.
+   * **Output**: Saves a PDF file with Aruco markers to the given filename.
+   * **Purpose**: Useful for creating physical markers for testing and deploying systems that use Aruco for navigation or interaction.
+
+**Computer Vision Helpers**
+
+These functions primarily deal with image manipulation techniques, which prepare images for further processing or feature detection. These functions are integral to image preprocessing in the **RPRK** *camera* system, preparing images for more complex processing such as feature and object detection, and enhancing the performance of algorithms that rely on clean, noise-free inputs.
+
+10. `closing(self, mask)`
+
+   This function applies a morphological closing operation to an image (`mask`), which is useful for closing small holes or gaps within detected features in an image:
+
+   * **Parameter**: `mask`: A binary image where the white areas represent the features to be processed.
+   * **Process**: Uses a kernel (a matrix of ones) to perform dilation followed by erosion, effectively closing gaps.
+   * **Output**: Returns the mask after the closing operation.
+   * **Purpose**: Improves the appearance of detected features, making subsequent processing more robust.
+
+   ```python
+   def closing(self, mask):
+      kernel = np.ones((7,7),np.uint8) 
+      closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+      return closing
+   ```
+
+11. `opening(self, mask)`
+
+   This function applies a morphological opening operation to a mask, ideal for removing small noise points in an image:
+
+   * **Parameter**: `mask`: A binary image.
+   * **Process**: Uses a kernel to perform erosion followed by dilation, removing small noise elements.
+   * **Output**: Returns the mask after the opening operation.
+   * **Purpose**: Cleans up noise in binary images, enhancing the clarity of the features.
+
+12. `blurring(self, mask)`
+
+   This function applies Gaussian blurring to an image (`mask`), which is often used to reduce image noise and detail:
+
+   * **Parameter**: `mask`: The image to be blurred.
+   * **Process**: Applies a Gaussian blur filter which uses a Gaussian kernel.
+   * **Output**: Returns the blurred image.
+   * **Purpose**: Useful for reducing high-frequency noise, making some subsequent image processing algorithms more effective.
+
+   ```python
+   def blurring(self, mask):
+      blur = cv2.GaussianBlur(mask,(5,5),0)
+      return blur
+   ```
+
+13. `eroding(self, mask)`
+
+   This function performs an erosion operation on a mask, which can be used to erode the boundaries of regions of foreground pixels:
+
+   * **Parameter**: `mask`: A binary image.
+   * **Process**: Applies an erosion filter using a defined kernel, which shrinks the areas of white pixels.
+   * **Output**: Returns the image after erosion.
+   * **Purpose**: Helps in cleaning up smaller pixel artifacts and separating objects that are touching.
+
+   ```python
+   def eroding(self, mask):
+      kernel = np.ones((5,5),np.uint8)
+      erosion = cv2.erode(mask, kernel, iterations = 1)
+      return erosion
+   ```
+
+14. `dilating(self, mask)`
+
+   This function performs a dilation on a mask, expanding the area of white regions, which is often used after an erosion to bring the image closer to its original size:
+
+   * **Parameter**:
+   `mask`: A binary image.
+   * **Process**: Uses a dilation filter with a specified kernel to expand the areas of white pixels.
+   * **Output**: Returns the dilated image.
+   * **Purpose**: Useful for joining adjacent objects, filling small holes, or expanding features after erosion.
+
+15. `canny_edge_detection(self, mask)`
+
+   This function applies the Canny edge detection algorithm to a mask, which identifies the edges of objects within an image:
+
+   **Parameter**: `mask`: The image from which edges are to be detected.
+   **Process**: Uses the `Canny` algorithm to detect a wide range of edges in the image.
+   **Output**: Returns an image with the detected edges highlighted.
+   **Purpose**: Critical for feature detection and image analysis tasks where edges define object boundaries.
+
+   ```python
+   def canny_edge_detection(self, mask):
+      edges = cv2.Canny(mask,100,200)
+      return edges
+   ```
+
+**CSV Colour Data Management**
+
+The RPRK Camera sub-class creates and utilizes a CSV file to store the current HSV colour parameters for colour detection. These functions support comprehensive management of colour settings and CSV file creation and modification, crucial for tasks in robotics that rely on accurate color recognition, such as object tracking, sorting, or navigation based on colored markers. They focus on the management and manipulation of color values for image processing:
+
+16. `create_hsv_csv_file(self, filename)`
+
+   This function creates a **CSV** file that contains default *Hue, Saturation, and Value* (**HSV**) color ranges if such a file does not already exist. It's intended to provide a standardized reference for color detection tasks:
+
+   * **Parameter**: `filename`: The name of the CSV file to be created.
+   * **Process**:
+      - Checks if a file with the given name exists in the current directory.
+      - If it does not exist, the function writes default HSV values for common colors into a new CSV file.
+   * **Output**: Creates a file if needed, no direct return value.
+   * **Purpose**: Ensures consistent color detection across different runs or setups by providing predefined HSV thresholds.
+
+17. `read_hsv_values(self, filename)`
+
+   This function reads HSV values from a CSV file, which are used to detect specific colors in images:
+
+   * **Parameter**:`filename`: The name of the CSV file containing HSV values.
+   * **Process**: Opens the CSV file and reads the HSV values into a dictionary, where each color name is associated with its respective low and high HSV thresholds.
+   * **Output**: Returns a dictionary containing the color names and their HSV ranges.
+   * **Purpose**: Provides access to HSV thresholds for use in various color detection functions, ensuring accurate and consistent color identification.
+
+18. `write_hsv_values(self, filename, hsv_values)`
+
+   This function writes updated HSV values to a CSV file, allowing for customization of color detection parameters:
+
+   * **Parameters**:
+      - `filename`: The CSV file where the HSV values will be saved.
+      - `hsv_values`: A dictionary containing the color names and their associated HSV ranges.
+   * **Process**:
+      - Opens the specified CSV file in write mode.
+      - Writes the HSV values from the dictionary to the file, ensuring each color's thresholds are properly formatted and saved.
+   * **Output**: Updates the CSV file with new HSV values, no direct return value.
+   * **Purpose**: Facilitates updates to HSV thresholds, allowing users to tweak color detection settings based on specific needs or environmental conditions.
+
+   ```python
+   def write_hsv_values(self, filename, hsv_values):
+      with open(filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            for colour in hsv_values:
+               writer.writerow([colour, hsv_values[colour][0][0], hsv_values[colour][0][1], hsv_values[colour][0][2],
+                                       hsv_values[colour][1][0], hsv_values[colour][1][1], hsv_values[colour][1][2]])
+   ```
+
+19. `change_hsv_values(self, colour, parameter, range, value)`
+
+   This function modifies specific HSV values for a given color in the existing CSV file, providing fine-tuning of color detection settings:
+
+   * **Parameters**:
+      - `colour`: The name of the color whose HSV values are to be modified.
+      - `parameter`: Specifies which part of the HSV (Hue, Saturation, Value) to change.
+      - `range`: Specifies whether to modify the 'low' or 'high' threshold of the HSV range.
+      - `value`: The new value to set for the specified parameter and range.
+   * **Process**:
+      - Reads the current HSV values from the CSV file.
+      - Updates the specified parameter for the given color and range with the new value.
+      - Writes the updated values back to the CSV file.
+   * **Output**: Modifies the HSV values in the CSV file, enhancing precision in color detection.
+   * **Purpose**: Allows users to dynamically adjust color thresholds based on observed performance, improving adaptability and accuracy in applications requiring precise color recognition.
+
+   ```python
+   def change_hsv_values(self, colour, parameter, range, value):
+      self.current_hsv_values = self.read_hsv_values(self.hsv_filename)
+
+      colours = ["red", "blue", "green", "lilac"]
+      parameters = ["hue", "saturation", "value"]
+      ranges = ["low", "high"]
+
+      if colour in colours and parameter in parameters and range in ranges:
+            self.current_hsv_values[colour][ranges.index(range)][parameters.index(parameter)] = value
+            self.write_hsv_values(self.hsv_filename, self.current_hsv_values)
+      else:
+            print("Invalid input")
+   ```
+
+### Ultrasonic (`Ultrasonic`) Submodule
+
 Sensor Reading: Provides a method to retrieve the distance measurement from ultrasonic sensors.
 
-Joystick Class:
+### Joystick (`Joystick`) Submodule
 Joystick Control: Methods to get the current direction from joystick inputs.
 
-InfraredSensor Class:
+### Infrared Sensor (`InfraredSensor`) Submodule
 Distance Measurement: Method to fetch the current distance from an infrared sensor.
 
 Detailed Methodologies
