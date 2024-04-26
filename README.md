@@ -419,6 +419,13 @@ To establish and maintain serial communication between the ARB and the Pi, two l
 
 The RPRK class (`RPRK.py`) is a Python module designed for handling various components of the Raspberry Pi Robotics Kit (RPRK). This module interfaces with Arduino via the use of the `ARBPi` serial communication library for sensor and actuator management, processing sensor data, and controlling actuators based on sensor inputs and predefined algorithms.
 
+**Features**
+
+* **Motor Control**: Adjust speeds and directions based on sensor inputs or remote commands, utilizing feedback from encoders to adjust robot movement accurately using PID control.
+* **Sensor Integration**: Use infrared and ultrasonic sensors to detect obstacles, aiding in autonomous navigation.
+* **User Input**: Leverage joystick inputs for manual control of the robot's movement.
+* **Vision Processing**: Utilize the camera for visual tasks like navigation markers detection, object recognition, and environment mapping.
+
 The `RPRK.py` file encapsulates multiple classes and functionalities to enable comprehensive robot control and monitoring. This script contains the main class `RPRK`, which integrates various sub-modules like *motors*, *camera*, *infrared* and *ultrasonic* sensors, and *joystick* control. Each submodule is encapsulated in its nested class within the `RPRK` class, allowing for organized and modular programming. Here's a detailed breakdown of its components and functionalities:
 
 ### Initialisation
@@ -1186,26 +1193,113 @@ The RPRK Camera sub-class creates and utilizes a CSV file to store the current H
 
 ### Ultrasonic (`Ultrasonic`) Submodule
 
-Sensor Reading: Provides a method to retrieve the distance measurement from ultrasonic sensors.
+The `Ultrasonic` class configures the ultrasonic sensors and interfaces with the Arduino by retrieving distance measurements using serial communication.
+
+* **Sensor Reading**: Provides methods to retrieve the distance measurement from specified ultrasonic sensors, facilitating obstacle detection and avoidance.
+
+Thre are two functions within the `Ultrasonic` subclass of the `RPRK` class:
+
+1. `__init__(self)`
+
+   This function serves as the constructor for the `Ultrasonic` subclass. Its primary role is to initialize and configure the serial communication registers specific to ultrasonic sensors on the robot. Here’s how it works:
+
+   * **Process**:
+      * Sets up register addresses for serial communication with the ultrasonic sensors. These registers are used to receive the distance data measured by the sensors.
+      * Two main registers are typically involved: one for each ultrasonic sensor (often positioned on the left and right sides of the robot) to facilitate independent measurements from both sides.
+   * **Purpose**: The setup ensures that the distance data from ultrasonic sensors can be accurately read and used by other components of the robot for tasks like navigation and obstacle detection.
+
+2. `get_ultrasound_distance(self, sensor)`
+
+   This function retrieves the distance measurement from a specified ultrasonic sensor. It's a key function for enabling the robot to gauge distances to objects in its environment, enhancing its ability to navigate safely and effectively.
+
+   * **Parameters**:
+      - `sensor`: A string specifying which sensor's data to retrieve. This is typically "left" or "right", corresponding to the sensors positioned on either side of the robot.
+   * **Process**: Reads the distance value from the designated serial register associated with the chosen sensor. The sensor parameter determines which register address is used for reading the data.
+   * **Output**: Returns the distance measured by the specified sensor. This distance is in units that are predefined, such as *centimeters*.
+   * **Purpose**: The function allows the robot to dynamically adjust its path and decisions based on real-time distance measurements, crucial for avoiding collisions and efficiently navigating through its operational environment.
+
+   ```python
+   # Get data from the appropiate register based on target sensor
+   def get_ultrasound_distance(self, sensor): 
+      possible_sensors = {"left": self.REG_SEND_DATA_ULTRASOUND_1,
+                           "right": self.REG_SEND_DATA_ULTRASOUND_2}
+      
+      if sensor in possible_sensors:
+            distance = getRegister(possible_sensors.get(sensor))
+            distance = np.uint8(distance)
+            return distance
+      else:
+            print("Incorrect sensor name.")
+   ```
+
+Together, these functions form the core of the `Ultrasonic` subclass, equipping the robot with the necessary tools to interact with its surroundings through precise distance measurements, thereby enhancing its autonomy and safety in complex environments.
 
 ### Joystick (`Joystick`) Submodule
-Joystick Control: Methods to get the current direction from joystick inputs.
+
+The `Joystick` module functions provides a direct and responsive user interface for managing the **ARB** board's joystick component. The setup and retrieval processes facilitated by this class integrate physical user inputs into the robotic system's operational framework.
+
+* **Joystick Control**: Methods to get the current direction from joystick inputs by fetching current joystick direction from a register and translating it into actionable commands.
+
+1. `__init__(self)`
+
+   This function serves as the constructor for the `Joystick` subclass and is responsible for setting up the necessary infrastructure for joystick interaction.
+
+   * **Process**: During initialization, the function sets up serial registers specifically designated for joystick data communication. These registers are used for both sending and receiving joystick movement data.
+   The defined joystick-specific registers adddresses are:
+      - `REG_SEND_MSG_JOYSTICK`: Used to send messages or commands from the joystick to the robot's control system.
+      - `REG_RECEIVE_MSG_JOYSTICK`: Used to receive messages or status updates relevant to joystick operations.
+      - `REG_SEND_DATA_JOYSTICK`: Used to send specific joystick direction or action commands to the robot.
+   * **Purpose**: This setup ensures that all joystick-related data flows correctly between the input device (`joystick`) and the robot's control system, allowing for real-time control of the robot based on user input.
+
+2. `get_joystick_direction(self)`
+
+   This function retrieves the current direction indicated by the joystick, which is essential for determining how the robot should move based on user input.
+
+   * **Process**: The function reads from a register (`REG_SEND_DATA_JOYSTICK`), which holds the current state or direction command from the joystick. This register contains data encoded as specific values corresponding to directions like *forward, backward, left, right, and stop*.
+   * **Output**: The function interprets the register's value and converts it into a meaningful direction command, which can be used by other parts of the robot's control system to execute movement.
+   * **Purpose**: By determining the direction command from the joystick, the robot can respond dynamically to user inputs, allowing for controlled and intuitive navigation and movement. This capability is crucial in scenarios where manual control is necessary, such as navigating through complex environments or manual override in automated processes.
+
+   ```python
+   # Get current joystick direction
+   def get_joystick_direction(self):
+      direction_data = getRegister(self.REG_SEND_DATA_JOYSTICK)
+      
+      possible_directions = {0: "stop", 1: "forward", 2:"backward", 
+                              3:"left", 4:"right", 5:"stop"}
+      
+      if direction_data in possible_directions:
+            direction = possible_directions.get(direction_data)
+            print(f"The joystick is moving {direction}")
+            return direction
+      else:
+            print(f"Unusual value read from the register: {direction_data}")
+   ```
 
 ### Infrared Sensor (`InfraredSensor`) Submodule
-Distance Measurement: Method to fetch the current distance from an infrared sensor.
 
-Detailed Methodologies
-read_16bit_number and send_16bit_number:
-These methods facilitate reading and writing of 16-bit integers across two 8-bit registers, critical for handling larger data values that exceed the capacity of a single 8-bit register.
-read_fractional_number and send_fractional_number:
-These methods manage floating-point numbers by splitting them into integer and fractional parts, crucial for precise control and measurement tasks.
-Use Cases in Robotics
-Motor Control: Adjust speeds and directions based on sensor inputs or remote commands, utilizing feedback from encoders to adjust robot movement accurately.
-Sensor Integration: Use infrared and ultrasonic sensors to detect obstacles, aiding in autonomous navigation.
-User Input: Leverage joystick inputs for manual control of the robot's movement.
-Vision Processing: Utilize the camera for visual tasks like navigation markers detection, object recognition, and environment mapping.
+Manages the infrared distance sensor data collection.
 
-### interfaceRPRK.ino Sketch (Arduino)
+* **Infrared Measurement**: Provides a method to get distance measurements from the RPRK's infrared sensor, useful for close-range obstacle detection.
+
+**Methods**
+
+- `__init__`: Sets up the register for communicating with the infrared sensor (`self.REG_SEND_IR`).
+- `get_infrared_distance`: Retrieves the current distance reading from the infrared sensor, which is often used for precise short-range obstacle detection, useful for obstacle detection and avoidance.
+
+```python
+class InfraredSensor:
+        def __init__(self):
+            # I2C MUX communication 
+            self.REG_SEND_IR = 10 # Serial register to send the IR data to
+        
+            # Get data from the register
+        def get_infrared_distance(self):
+            return getRegister(self.REG_SEND_IR)
+```
+
+### interfaceRPRK.ino (Arduino)
+
+
 
 ---
 
