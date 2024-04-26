@@ -683,11 +683,11 @@ These methods are designed for specific tasks involving motor encoder control an
 
 10. `reset_encoder(self, encoder)`
 
-   This function resets the step count of a specified encoder to zero. Resetting encoders is necessary when initializing the robot or when you need to recalibrate or restart distance measurements.
+      This function resets the step count of a specified encoder to zero. Resetting encoders is necessary when initializing the robot or when you need to recalibrate or restart distance measurements.
 
-   * **Parameter**: `encoder` indicates which encoder (*A* or *B*) to reset.
-   * **Process**: Sends a reset command to the appropriate *register* linked to the chosen encoder.
-   * **Output**: Typically does not return a value but resets the encoder's step count, allowing for fresh measurements from a known reference point.
+      * **Parameter**: `encoder` indicates which encoder (*A* or *B*) to reset.
+      * **Process**: Sends a reset command to the appropriate *register* linked to the chosen encoder.
+      * **Output**: Typically does not return a value but resets the encoder's step count, allowing for fresh measurements from a known reference point.
 
 **Odometry**
 
@@ -695,14 +695,14 @@ These functions are responsible for calculating the robot's current position and
 
 11. `calculate_current_pose(self, distance_a, distance_b)`
 
-   This function updates the robot's current pose (*position* and *orientation*) based on the distances traveled by each wheel, as measured by the encoders. The pose includes the robot's coordinates (*x*, *y*) and its orientation (angle *theta*).
+      This function updates the robot's current pose (*position* and *orientation*) based on the distances traveled by each wheel, as measured by the encoders. The pose includes the robot's coordinates (*x*, *y*) and its orientation (angle *theta*).
 
-   * **Parameters**: `distance_a`: Distance traveled by wheel A. `distance_b`: Distance traveled by wheel B.
-   * **Process**:
-      * **Calculating Angular Change**: It first calculates the change in angle (`angle_change`) as (`distance_b` - `distance_a`) / `self.distance_between_wheels`, which gives the difference in wheel distances divided by the axle length.
-      * **Calculating Linear Movement**: The function then computes the average linear movement (`distance_change`) as (`distance_a` + `distance_b`) / 2.
-      * **Updating Pose**: The new position (*x*, *y*) and orientation (*theta*) are updated based on the previous pose and the calculated angular and linear changes. This update uses trigonometric calculations to determine how much the robot has moved and rotated.
-      * **Output**: Returns the incremental changes (`distance_change`, `angle_change`) and updates the robot's internal pose representation.
+      * **Parameters**: `distance_a`: Distance traveled by wheel A. `distance_b`: Distance traveled by wheel B.
+      * **Process**:
+         * **Calculating Angular Change**: It first calculates the change in angle (`angle_change`) as (`distance_b` - `distance_a`) / `self.distance_between_wheels`, which gives the difference in wheel distances divided by the axle length.
+         * **Calculating Linear Movement**: The function then computes the average linear movement (`distance_change`) as (`distance_a` + `distance_b`) / 2.
+         * **Updating Pose**: The new position (*x*, *y*) and orientation (*theta*) are updated based on the previous pose and the calculated angular and linear changes. This update uses trigonometric calculations to determine how much the robot has moved and rotated.
+         * **Output**: Returns the incremental changes (`distance_change`, `angle_change`) and updates the robot's internal pose representation.
 
 12. `calculate_speed_cm_s(self, distance_cm, time_difference_s)`
 
@@ -780,12 +780,16 @@ These functions are used to interface with the Arduino's PID control functions a
 Camera Class:
 Initialization: Configures the Raspberry Pi camera and prepares it for continuous image capture.
 Image Processing: Methods for detecting markers (Aruco), blobs, and colors within the camera feed. Uses OpenCV for image analysis.
+
 Ultrasonic Class:
 Sensor Reading: Provides a method to retrieve the distance measurement from ultrasonic sensors.
+
 Joystick Class:
 Joystick Control: Methods to get the current direction from joystick inputs.
+
 InfraredSensor Class:
 Distance Measurement: Method to fetch the current distance from an infrared sensor.
+
 Detailed Methodologies
 read_16bit_number and send_16bit_number:
 These methods facilitate reading and writing of 16-bit integers across two 8-bit registers, critical for handling larger data values that exceed the capacity of a single 8-bit register.
