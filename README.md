@@ -1676,6 +1676,11 @@ This class manages the robot's movement in relation to its surroundings using ul
    - Initializes thresholds for distance measurements to define proximity to walls.
    - Sets up a state machine with various states such as moving forward, adjusting to the right or left, and backing up when necessary.
 
+**Sensor Integration:**
+
+   - Uses methods to check for obstacles (`obstacle_in_front`), and the presence of walls on either side (`wall_to_the_right`, `wall_to_the_left`).
+   - Adjusts the robot's movements based on these sensor inputs to follow the wall to its left at a consistent distance.
+
 **State Machine:**
 
    - Each state has an associated **action** (e.g., `move_forward`, `adjust_direction`) and **transition conditions** based on sensor readings.
@@ -1701,6 +1706,7 @@ This class manages the robot's movement in relation to its surroundings using ul
       ```
 
    * **Operation**:
+
       * **Execution Loop**: The state machine runs within a loop that continuously evaluates the current state's action and transitions based on real-time sensor data.
       * **Timing**: Each loop iteration includes a brief sleep interval (e.g., 0.2 seconds) to allow for sensor updates and motor response without rapid oscillations or state churning.
 
@@ -1724,10 +1730,25 @@ This class manages the robot's movement in relation to its surroundings using ul
             time.sleep(0.2)
       ```
 
-**Sensor Integration:**
+      **Process:**
 
-   - Uses methods to check for obstacles (`obstacle_in_front`), and the presence of walls on either side (`wall_to_the_right`, `wall_to_the_left`).
-   - Adjusts the robot's movements based on these sensor inputs to follow the wall to its left at a consistent distance.
+      The state machine guides the robot to follow a wall on its left side through a maze by dynamically adjusting its movement based on sensor feedback. Here's a brief explanation of how it achieves this:
+
+      1. **Initial Setup**:
+
+         * The robot starts in the `"Start"` state where it initializes and confirms readiness for operation. Once initialized, it transitions to the `"Move Forward"` state.
+
+      2. **Moving Forward**:
+
+         * In the `"Move Forward"` state, the robot proceeds straight ahead. It continuously checks for obstacles in front, the presence of a wall to the right, and the distance to the wall on the left.
+         * If an obstacle is detected straight ahead, the robot transitions to `"Adjust Backwards"` to maneuver around the obstacle.
+         * If the robot drifts too close to the left wall or too far from it, it will adjust its course.
+
+      3. **Directional Adjustments**:
+
+         * **Adjust Right**: If the robot is too close to the left wall or there’s no wall detected to the left, it adjusts its trajectory slightly to the right to maintain an optimal distance from the left wall.
+         * **Adjust Left**: Conversely, if the robot is too far from the left wall, it will steer left to decrease the distance to the wall, ensuring it remains aligned with the left wall of the maze.
+         * **Adjust Backwards**: Faced with a direct obstacle, the robot moves backwards and makes a sharp turn to the right, aiming to clear the obstacle and resume following the wall on its left.
 
 ### RobotVision Class
 
@@ -1765,51 +1786,160 @@ if __name__ == '__main__':
 
 ## Keyboard Control With Avoidance
 
-The keyboard_control_with_avoidance.py script is designed to allow manual control of a robotic platform using the RPRK class, while also incorporating obstacle avoidance and visual data processing capabilities. This dual functionality is structured around a finite state machine (FSM) that transitions between different operational states based on sensor inputs and user commands. Additionally, a concurrent thread manages vision processing tasks.
+The `keyboard_control_with_avoidance.py` script is designed to allow manual control of a robotic platform using the `RPRK` class, while also incorporating obstacle avoidance and visual data processing capabilities. This dual functionality is structured around a **finite state machine (FSM)** that transitions between different operational states based on sensor inputs and user commands. Additionally, a concurrent thread manages vision processing tasks.
 
-Overview of the Main Components:
-KeyboardControl:
-Processes keyboard input using `sys`, `termios` and `tty` into a function named `getch()` (get character).
-Runs character reading function continually in a separate thread, so that it is non-blocking.
-ObstacleAvoidControlWASD:
-Manages user interactions and the robot's movements with real-time adjustments based on proximity sensors.
-Uses a keyboard thread to non-blocking read user input, allowing dynamic control via the WASD keys.
-RobotVision:
-Handles vision processing, detecting markers and shapes, which can be useful for navigation aids, object recognition, or mapping environments.
-State Machine Description:
-The FSM in ObstacleAvoidControlWASD comprises several states that dictate the robot's behavior based on its environment and user inputs:
+### Overview of the Main Components
 
-Start (State 0):
-Initial setup and configuration.
-Transitions to "Read Input" once the initialization is confirmed.
-Read Input (State 1):
-Processes keyboard inputs for direct control commands (WASD for directions, numerics for speed).
-Conditionally transitions to adjustment states if obstacles or walls are detected, or continues in the current state if clear.
-Adjust Right/Left/Backwards (States 2, 3, 4):
-Executed when the robot needs to navigate away from detected obstacles or walls.
-Adjusts the robot's trajectory by briefly changing its direction to avoid collisions.
-Finalize (State 5):
-Concludes operations, typically triggered by a specific command (like pressing 'P').
-Each state includes an action to perform (like moving or turning), and conditions to check which determine the next state. Transitions depend on sensory inputs such as detecting nearby obstacles or walls, and user commands from the keyboard.
+**KeyboardControl**:
 
-Key Functions and Methods:
-Keyboard Input Handling:
-getch(): Reads a single character from the keyboard without waiting for a newline, enabling reactive control.
-main(): Continuously checks for new keyboard inputs to update the robot's movement commands.
-Movement and Adjustment Functions:
-move_forward(), adjust_right(), adjust_left(), adjust_backwards(): Execute specific movement commands.
-These functions adjust the robot's speed and direction based on the current state and sensor inputs.
-Sensor Check Functions:
-obstacle_in_front(), wall_to_the_right(), wall_to_the_left(): Return boolean values based on ultrasonic and infrared sensor readings to detect proximity to obstacles.
-Vision Processing:
-main(): In RobotVision, captures frames from the camera, processes them to detect ArUco markers, colors, and shapes.
-detect_aruco(), detect_colour(), detect_shapes(): Specific methods for image processing tasks.
-Execution and Threading:
-The script initializes the RPRK system and then starts the wasd_control and robot_vision as separate threads.
-This threading allows the robot to simultaneously respond to direct user inputs and process visual data, making it versatile for tasks like remote operation or automated patrol in environments where visual cues are critical.
-The architecture of the system makes it highly adaptable, capable of handling complex tasks like navigation and object detection while being directly controlled by a user. This setup is ideal for environments where both precise control and autonomous behavior are required.
+* Processes keyboard input using `sys`, `termios` and `tty` into a function named `getch()` *(get character)*.
+* Runs character reading function continually in a separate thread, so that it is non-blocking.
+
+```python
+def getch(self):
+   import sys, termios, tty
+
+   fd = sys.stdin.fileno()
+   orig = termios.tcgetattr(fd)
+
+   try:
+      tty.setcbreak(fd)  # or tty.setraw(fd) if you prefer raw mode's behavior.
+      return sys.stdin.read(1)
+   finally:
+      termios.tcsetattr(fd, termios.TCSAFLUSH, orig)
+
+def main(self):
+   while True:
+      # Read user input
+      self.user_input = self.getch()
+```
+
+**ObstacleAvoidControlWASD**:
+
+* Manages user interactions and the robot's movements with real-time adjustments based on proximity sensors.
+* Uses an instance of the `KeyboardControl` class in a keyboard thread to non-blocking read user input, allowing dynamic control via the *WASD* keys.
+
+**RobotVision**:
+
+* Handles vision processing, detecting markers and shapes, which can be useful for navigation aids, object recognition, or mapping environments.
+
+### State Machine Description
+
+The *FSM* in `ObstacleAvoidControlWASD` comprises several states that dictate the robot's behavior based on its environment and user inputs:
+
+**Start (State 0):**
+
+* Initial setup and configuration.
+* Transitions to "Read Input" once the initialization is confirmed.
+
+**Read Input (State 1):**
+
+* Processes keyboard inputs for direct control commands (*WASD* for *directions*, numerics for *speed*).
+* Conditionally transitions to adjustment states if obstacles or walls are detected, or continues in the current state if clear.
+
+```python
+def manual_control_wasd(self):
+   # Read user input
+   self.user_input = self.keyboard.get_user_input()
+
+   speedInput = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+
+   # If the user input is 0-9
+   if self.user_input in speedInput:
+      if self.user_input != self.previous_speed_input:
+            self.rprk.motors.set_robot_speed_by_level(int(self.user_input))
+            self.previous_speed_input = self.user_input
+
+   directionInput = {"W": "forward", "A": "left", "S": "backward", "D": "right",
+                  "w": "forward", "a": "left", "s": "backward", "d": "right"}
+
+   # If the user input is WASD
+   if self.user_input in directionInput:
+      if self.user_input != self.previous_direction_input:
+            direction = directionInput.get(self.user_input) # Get associated signal in directionInput
+            self.rprk.motors.change_direction(direction)
+            self.previous_direction_input = self.user_input
+
+```
+
+**Adjust Right/Left/Backwards (States 2, 3, 4):**
+
+* Executed when the robot needs to navigate away from *detected obstacles or walls*.
+* Adjusts the robot's trajectory by briefly changing its direction to avoid collisions.
+
+**Finalize (State 5):**
+
+* Concludes operations, typically triggered by a specific command (like pressing 'P').
+
+Each state includes an action to perform (like *moving* or *turning*), and *conditions* to check which determine the next state. Transitions depend on *sensory inputs* such as detecting nearby obstacles or walls, and user commands from the *keyboard*.
+
+### Key Functions and Methods
+
+**Keyboard Input Handling:**
+
+* `getch()`: Reads a single character from the keyboard without waiting for a newline, enabling reactive control.
+* `main()`: Continuously checks for new keyboard inputs to update the robot's movement commands.
+
+**Movement and Adjustment Functions:**
+
+* `move_forward()`, `adjust_right()`, `adjust_left()`, `adjust_backwards()`: Execute specific movement commands.
+* These functions adjust the robot's speed and direction based on the current state and sensor inputs.
+
+**Sensor Check Functions:**
+
+* `obstacle_in_front()`, `wall_to_the_right()`, `wall_to_the_left()`: Return boolean values based on ultrasonic and infrared sensor readings to detect proximity to obstacles.
+
+**Vision Processing:**
+
+* `main()`: In `RobotVision`, captures frames from the camera, processes them to detect **ArUco** markers, colors, and shapes.
+* `detect_aruco()`, `detect_colour()`, `detect_shapes()`: Specific methods for image processing tasks.
+
+**Execution and Threading:**
+
+* The script initializes the RPRK system and then starts the `wasd_control` and `robot_vision` as separate threads.
+
+* This threading allows the robot to simultaneously respond to direct user inputs and process visual data, making it versatile for tasks like remote operation or automated patrol in environments where visual cues are critical.
 
 ## PID Wheel Control
+
+The `pid_wheel_control.py` script is designed to validate the **PID** (*Proportional-Integral-Derivative*) control capabilities of a motorizedthe RPRK robotic system using the `RPRK` class. The primary goal of this script is to command one wheel of the robot (**Wheel A**) to move a precise distance of 10 centimeters using PID control, while monitoring and displaying its speed and positional error. This script is a **test** tool for tuning the PID parameters and observing how changes affect the motor's response.
+
+### Key Components of the Script
+
+**PID Parameter Initialization:**
+
+* The script starts by defining PID coefficients for both Wheel A and Wheel B. However, only the coefficients for Wheel A are used (`kpA`, `kiA`, `kdA`), set to 127 each for this example. These values would typically be adjusted based on experimental data to minimize *overshoot* and *oscillations*.
+
+**Robot and Motor Configuration:**
+
+* An instance of the `RPRK` class is created, representing the robot. The script then configures the motor control mode to *"PID"* using `set_control_mode("PID")`. This mode enables the use of *PID* algorithms for controlling the wheel speeds directly based on feedback from the encoders.
+
+**Setting PID Tunings and Setpoints:**
+
+- `set_pid_tunings("A", kpA, kiA, kdA)`: Applies the *PID* tuning parameters specifically to **Wheel A**.
+- `set_pid_setpoint("A", 10)`: Sets the target distance for Wheel A to 10 centimeters. This command tells the *PID* controller that the desired outcome is for Wheel A to move exactly 10 centimeters.
+
+```python
+kpA = 127
+kiA = 127
+kdA = 127
+
+rprk = RPRK()
+rprk.motors.set_control_mode("PID");
+
+rprk.motors.set_pid_tunings("A", kpA, kiA, kdA)
+# rprk.motors.set_pid_tunings("B", kpB, kiB, kdB)
+
+rprk.motors.set_pid_setpoint("A", 10)
+```
+
+**Monitoring and Output:**
+
+* The script enters an infinite loop where it continuously reads and prints the current speed (`get_current_speed("A")`) and the PID error (`get_current_distance("A")`) of Wheel A. The speed indicates how fast the wheel is moving at any given moment, while the PID error reflects the difference between the desired setpoint (10 cm) and the actual distance moved.
+
+**Exception Handling:**
+
+The script includes a **try-except** block to handle a `KeyboardInterrupt` exception, allowing for graceful termination of the program when a user interrupts the process (commonly with `Ctrl+C`). This ensures that any necessary cleanup or shutdown procedures can be executed safely before the program exits.
 
 ---
 
