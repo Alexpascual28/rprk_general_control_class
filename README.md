@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/ec559a9f6bfd399b82bb44393651661b08aaf7ba/icons/folder-markdown-open.svg" width="100" alt="project-logo">
+  <img src="https://www.svgrepo.com/show/285257/robot.svg" width="100" alt="project-logo">
 </p>
 <p align="center">
     <h1 align="center">RPRK General Control Class</h1>
@@ -12,18 +12,26 @@
 <details>
   <summary>Table of Contents</summary><br>
 
-- [ Overview](#-overview)
-- [ Features](#-features)
-- [ Repository Structure](#-repository-structure)
-- [ Modules](#-modules)
-- [ Getting Started](#-getting-started)
-  - [ Installation](#-installation)
-  - [ Usage](#-usage)
-  - [ Tests](#-tests)
-- [ Project Roadmap](#-project-roadmap)
-- [ Contributing](#-contributing)
-- [ License](#-license)
-- [ Acknowledgments](#-acknowledgments)
+- [Overview](#overview)
+  - [System Components](#system-components)
+- [Directory Structure](#directory-structure)
+- [Repository Structure](#repository-structure)
+- [Modules](#modules)
+  - [Python Modules](#python-modules)
+  - [Arduino Modules](#arduino-modules)
+- [Getting Started](#getting-started)
+  - [Software and Libraries](#software-and-libraries)
+  - [Hardware](#hardware)
+  - [Installation](#installation)
+  - [Usage](#usage)
+- [ARB and ARBPi](#arb-and-arbpi)
+  - [ARB Library](#arb-library)
+  - [ARBPi Library](#arbpi-library)
+- ["RPRK" and "interfaceRPRK" Classes](#rprk-and-interfacerprk-classes)
+  - [RPRK Class (Raspberry Pi)](#rprk-class-raspberry-pi)
+  - [interfaceRPRK.ino (Arduino)](#interfacerprkino-arduino)
+- [Contributing](#contributing)
+
 </details>
 <hr>
 
@@ -128,7 +136,7 @@ The project includes several key directories and files:
 
 ##  Getting Started
 
-**Software and Libraries**
+### Software and Libraries
 
 To run this project, you will need:
 
@@ -149,7 +157,7 @@ On your computer:
 * WinSCP: For FTP comms and file transfer. (or equivalent)
 * XMing: To forward camera image data. (or equivalent)
 
-**Hardware**
+### Hardware
 
 The Raspberry Pi Robotics Kit (RPRK) is designed to help students build and program a mobile robot capable of solving a maze through localization and mapping. The robot uses various sensors, including wheel encoders, a front-facing camera, two side ultrasonic sensors, and a front infrared sensor, to navigate its environment. The kit includes:
 
@@ -428,9 +436,9 @@ The RPRK class (`RPRK.py`) is a Python module designed for handling various comp
 
 The `RPRK.py` file encapsulates multiple classes and functionalities to enable comprehensive robot control and monitoring. This script contains the main class `RPRK`, which integrates various sub-modules like *motors*, *camera*, *infrared* and *ultrasonic* sensors, and *joystick* control. Each submodule is encapsulated in its nested class within the `RPRK` class, allowing for organized and modular programming. Here's a detailed breakdown of its components and functionalities:
 
-### Initialisation
+### How to use
 
-To initialize the RPRK system, create an instance of the RPRK class. This setup will connect to the Arduino through serial communication, initialize all connected sensors, and prepare the motors and camera for operation.
+To initialize the RPRK system, create an instance of the `RPRK` class.
 
 ```python
 # Python
@@ -438,6 +446,23 @@ from RPRK import RPRK
 
 robot = RPRK()
 ```
+
+Methods can then be executed by using dot notation to access each sub-module in the `RPRK` class, and its respective methods. For example:
+
+```python
+# To change the direction of the robot
+robot.motors.change_direction("forward")
+
+# To change speed
+robot.motors.set_robot_speed(52)
+
+# To read ultrasonic sensor to the right of the robot
+right_distance = robot.ultrasound.get_ultrasound_distance("right")
+```
+
+### Initialisation
+
+When an `RPRK` object is instantiated, the class runs the `__init__` function. This setup will connect to the Arduino through serial communication, initialize all connected sensors, and prepare the motors and camera for operation.
 
 * `__init__`: The constructor initializes the communication setup and declares the initial position of the robot. It initializes serial communication with Arduino using the `ARBPiSetup()` function from the ARBPi module. It also instantiates the sub-classes that manage different parts of the robot such as motors, camera, infrared sensor, ultrasonic sensors, and joystick.
 
