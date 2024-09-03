@@ -325,7 +325,6 @@ class RPRK:
             else:
                 print("Incorrect motor.")
 
-
     class Camera:
         def __init__(self):
             # Initialise the camera and create a reference to it
