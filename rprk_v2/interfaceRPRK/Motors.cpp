@@ -32,31 +32,21 @@ void Motors::initialize(){
 }
 
 void Motors::runMotors(){
-//  m_readPidTunningSettings();
-//  m_readSetpoints();
-//  m_computePID(m_setpointA, m_setpointB, true);
-  m_advanceRobot(10);
-  m_rotateRobot(PI/4);
-  m_advanceRobot(-10);
-  m_rotateRobot(-PI/4);
+  m_readControlModeRegister();
 
-  m_advanceRobot(5);
-  m_rotateRobot(PI/2);
-  m_advanceRobot(-5);
-  m_rotateRobot(-PI/2);
+  if(m_pidControlMode == true){
+    m_readPidTunningSettings();
+    m_readSetpoints();
+    m_readOdometrySettings();
+    m_computePID(m_setpointA, m_setpointB, true);
 
-  m_rotateRobot(PI);
-  m_rotateRobot(-PI);
-
-  Serial.print("Pose:");
-    
-  Serial.print(" [");
-  Serial.print(m_pose[0]);
-  Serial.print(", ");
-  Serial.print(m_pose[1]);
-  Serial.print(", ");
-  Serial.print(m_pose[2]);
-  Serial.println("]");
+    m_readDirectionInput();
+  }
+  else {
+    // General movement
+    m_readSpeedLevelValue();
+    m_readDirectionInput();
+  }
 }
 
 // PRIVATE MEMBERS
@@ -112,17 +102,38 @@ void Motors::m_initializeSerialRegisters(){
   
   // POSE
   putRegister(REG_SEND_POSE_X, 0); // Robot pose x
-  putRegister(REG_SEND_POSE_X_CM, 0); // Robot pose x (decimal part)
+  putRegister(REG_SEND_POSE_X_DEC, 0); // Robot pose x (decimal part)
   
   putRegister(REG_SEND_POSE_Y, 0); // Robot pose y
-  putRegister(REG_SEND_POSE_Y_CM, 0); // Robot pose y (decimal part)
+  putRegister(REG_SEND_POSE_Y_DEC, 0); // Robot pose y (decimal part)
   
   putRegister(REG_SEND_POSE_W, 0); // Robot pose w
-  putRegister(REG_SEND_POSE_W_CM, 0); // Robot pose w (decimal part)
+  putRegister(REG_SEND_POSE_W_DEC, 0); // Robot pose w (decimal part)
   
   // DRIVE DATA
+  putRegister(REG_RECEIVE_GOAL_MARGIN, 0); // PID goal margin
   putRegister(REG_RECEIVE_STOP_SIGNAL, 0); // PID Stop signal
+  putRegister(REG_SEND_EXIT_CODE, 0); // Send exit code drive control data
+  putRegister(REG_RECEIVE_CONTROL_MODE, 0); // Receives control mode input
+  
+  putRegister(REG_RECEIVE_SPEED_DATA, 0); // Receive speed data
   putRegister(REG_RECEIVE_MSG_DRIVE, 0); // Receive drive control data
+  putRegister(REG_SEND_MSG_DRIVE, 0); // Send drive control data
+}
+
+void Motors::m_readControlModeRegister(){
+  int controlModeInput = getRegister(REG_RECEIVE_CONTROL_MODE);
+
+  if(controlModeInput != m_controlModeInputPrev){
+    if(controlModeInput == 0){
+      m_pidControlMode = false;
+    }
+    else {
+      m_pidControlMode = true;
+    }
+    
+    m_controlModeInputPrev = controlModeInput;
+  }
 }
 
 void Motors::m_readPidTunningSettings(){
@@ -174,6 +185,39 @@ void Motors::m_readSetpoints(){
   }
 }
 
+// Read odometry settings for the robot
+void Motors::m_readOdometrySettings(){
+  double timeChangeInput = (double)getRegister(REG_RECEIVE_TIMECHANGE);
+  
+  if(timeChangeInput != m_timeChange){
+    m_timeChange = timeChangeInput;
+  }
+
+  double stepDistanceInput_cm = (double)getRegister(REG_RECEIVE_STEP_DISTANCE);
+
+  if(stepDistanceInput_cm != m_stepDistance_cm){
+    m_stepDistance_cm = stepDistanceInput_cm;
+  }
+
+  double distanceBetweenWheelsInput = (double)getRegister(REG_RECEIVE_DISTANCE_BETWEEN_WHEELS);
+  
+  if(distanceBetweenWheelsInput != m_distanceBetweenWheels){
+    m_distanceBetweenWheels = distanceBetweenWheelsInput;
+  }
+
+  double wheelDiameterInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_WHEEL_DIAMETER, REG_RECEIVE_WHEEL_DIAMETER_DEC);
+
+  if(wheelDiameterInput != m_wheelDiameter){
+    m_wheelDiameter = wheelDiameterInput;
+  }
+
+  float goalMarginInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_GOAL_MARGIN, REG_RECEIVE_GOAL_MARGIN_DEC);
+
+  if(goalMarginInput != m_goalMargin){
+    m_goalMargin = goalMarginInput;
+  }
+}
+
 int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal){
   int exitCode = 0;
   
@@ -183,7 +227,9 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
   double errorA = t_setpointA - stepsA_cm; // m_stepsA_cm -> input
   double errorB = t_setpointB - stepsB_cm; // m_stepsB_cm -> input
 
-  if(errorA > -m_goalMargin && errorA < m_goalMargin && stopAtGoal == true){
+  bool stopSignal = (bool)getRegister(REG_RECEIVE_STOP_SIGNAL);
+
+  if((errorA > -m_goalMargin && errorA < m_goalMargin && stopAtGoal == true) || (stopSignal = true)){
     m_setMotorSpeed(A, 0);
     m_resetErrors(A);
     exitCode += 1;
@@ -203,7 +249,7 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
     m_lastErrorA = errorA;
   }
 
-  if(errorB > -m_goalMargin && errorB < m_goalMargin && stopAtGoal == true){
+  if((errorB > -m_goalMargin && errorB < m_goalMargin && stopAtGoal == true) || (stopSignal = true)){
     m_setMotorSpeed(B, 0);
     m_resetErrors(B);
     exitCode += 1;
@@ -225,9 +271,12 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
 
   if(exitCode >= 2){
     m_calculateCurrentPose(stepsA_cm, stepsB_cm);
+    m_sendRobotPose(m_pose);
     m_stepsA = 0;
     m_stepsB = 0;
   }
+
+  putRegister(REG_SEND_EXIT_CODE, exitCode);
 
   delay(m_timeChange);
   
@@ -343,7 +392,59 @@ double Motors::m_readDecimalNumberFromRegisters(int t_register1, int t_register2
   return resultFrac;
 }
 
-// READ REGISTER FUNCTIONS
+// ROBOT DRIVE FUNCTIONS
+
+void Motors::m_readSpeedLevelValue(){
+  // Get data from general robot speed register
+  int speedValue = getRegister(REG_RECEIVE_SPEED_DATA);
+
+  // If the data has changed, change speed level
+  if(speedValue != m_speedValuePrev){
+    m_adjustSpeed(speedValue);
+    m_speedValuePrev = speedValue;
+  }
+}
+
+// Sets speed of both motors to a desired speed level (0 - 9)
+void Motors::m_adjustSpeed(int t_speedLevel){
+  // Variables for motor speed. Speeds are measured in PWM pulses 0 - 255
+  int speedAPWM = 0; // MotorA
+  int speedBPWM = 0; // MotorB
+  int baseSpeed = 255 / 9; // Divides maximum pwm into 9 speed levels
+
+  // If the speed level is between 0 and 9
+  if(t_speedLevel >= 0 && t_speedLevel <= 9){
+    // Set the speed to the desired level
+    speedAPWM = baseSpeed * t_speedLevel;
+    speedBPWM = baseSpeed * t_speedLevel;
+  }
+  else {
+    // Stop motors
+    speedAPWM = 0;
+    speedBPWM = 0;
+  }
+
+  //  Serial.print("Adjusting motor A PWM speed to: ");
+  //  Serial.println(speedAPWM);
+  //  Serial.print("Adjusting motor B PWM speed to: ");
+  //  Serial.println(speedBPWM);
+
+  // Send speed to motors
+  analogWrite(MOTOR_PWMA, speedAPWM);
+  analogWrite(MOTOR_PWMB, speedBPWM);
+}
+
+// Helper function to set direction output and update the global direction variable
+void Motors::m_motorSetDir(m_Motor t_motor, m_wheelDirection t_dir){
+  if(t_motor == A){
+    digitalWrite(MOTOR_DIRA, t_dir); // Write out the direction, 0 = CW, 1 = CCW
+    m_dirA = t_dir; // Update the direction variable
+  }
+  else if(t_motor == B){
+    digitalWrite(MOTOR_DIRB, t_dir);
+    m_dirB = t_dir;
+  }
+}
 
 void Motors::m_readDirectionInput(){
   // Get input data from register (WASD)
@@ -353,31 +454,82 @@ void Motors::m_readDirectionInput(){
   if(input != m_inputPrev){
     // Forward input
     if(input == 1){
-      m_aimRobot(FORWARD);
+      if(m_pidControlMode == true){
+        m_aimRobot(FORWARD);
+      } else {
+        m_moveForward();
+      }
       putRegister(REG_SEND_MSG_DRIVE, 1);
     }
     // Backward input
     else if (input == 2){
-      m_aimRobot(BACKWARD);
+      if(m_pidControlMode == true){
+        m_aimRobot(BACKWARD);
+      } else {
+        m_moveBackward();
+      }
       putRegister(REG_SEND_MSG_DRIVE, 2);
     }
     // Left input
     else if (input == 3){
-      m_aimRobot(LEFT);
+      if(m_pidControlMode == true){
+        m_aimRobot(LEFT);
+      } else {
+        m_moveLeft();
+      }
       putRegister(REG_SEND_MSG_DRIVE, 3);
     }
     // Right input
     else if (input == 4){
-      m_aimRobot(RIGHT);
+      if(m_pidControlMode == true){
+        m_aimRobot(RIGHT);
+      } else {
+        m_moveRight();
+      }
       putRegister(REG_SEND_MSG_DRIVE, 4);
     }
     // Anything else stops the motors
     else {
+      if(m_pidControlMode == false) m_stopRobot();
       putRegister(REG_SEND_MSG_DRIVE, 5);
     }
     
     m_inputPrev = input;
   }
+}
+
+// Moves the robot forwards
+void Motors::m_moveForward(){
+  Serial.println("Moving forwards.");
+  m_motorSetDir(A, CW);
+  m_motorSetDir(B, CCW);
+}
+
+// Moves the robot backwards
+void Motors::m_moveBackward(){
+  Serial.println("Moving backwards.");
+  m_motorSetDir(A, CCW);
+  m_motorSetDir(B, CW);
+}
+
+// Moves the robot left
+void Motors::m_moveLeft(){
+  Serial.println("Moving left.");
+  m_motorSetDir(A, CCW);
+  m_motorSetDir(B, CCW);
+}
+
+// Moves the robot right
+void Motors::m_moveRight(){
+  Serial.println("Moving right.");
+  m_motorSetDir(A, CW);
+  m_motorSetDir(B, CW);
+}
+
+// Stops the robot
+void Motors::m_stopRobot(){
+  Serial.println("Stopping robot.");
+  m_adjustSpeed(0);
 }
 
 void Motors::m_rotateRobot(double t_angle_radians){
@@ -413,6 +565,13 @@ void Motors::m_aimRobot(m_robotDirection t_robotDirection){
   double setpointB = (t_robotDirection == FORWARD || t_robotDirection == LEFT) ? m_stepDistance_cm : -m_stepDistance_cm;
   
   m_computePID(setpointA, setpointB, true);
+}
+
+// Send robot pose to Pi
+void Motors::m_sendRobotPose(double t_pose[3]){
+  m_sendDecimalToRegisters(REG_SEND_POSE_X, REG_SEND_POSE_X_DEC, t_pose[0]);
+  m_sendDecimalToRegisters(REG_SEND_POSE_Y, REG_SEND_POSE_Y_DEC, t_pose[1]);
+  m_sendDecimalToRegisters(REG_SEND_POSE_W, REG_SEND_POSE_W_DEC, t_pose[2]);
 }
 
 /* 

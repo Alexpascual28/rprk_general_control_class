@@ -25,5 +25,4 @@ void loop() {
   
   // Call the serialUpdate function at least once per loop
   serialUpdate();
-  delay(0.1);
 }

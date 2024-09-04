@@ -37,26 +37,31 @@
 #define REG_RECEIVE_STEP_DISTANCE 47 // Distance per step
 #define REG_RECEIVE_DISTANCE_BETWEEN_WHEELS 48 // Distance between wheels in centimetres
 #define REG_RECEIVE_WHEEL_DIAMETER 49 // Wheel diameter
+#define REG_RECEIVE_WHEEL_DIAMETER_DEC 50 // Wheel diameter
 
 // POSE
 
-#define REG_SEND_POSE_X 50 // Robot pose x
-#define REG_SEND_POSE_X_CM 51 // Robot pose x (decimal part)
+#define REG_SEND_POSE_X 51 // Robot pose x
+#define REG_SEND_POSE_X_DEC 52 // Robot pose x (decimal part)
 
-#define REG_SEND_POSE_Y 52 // Robot pose y
-#define REG_SEND_POSE_Y_CM 53 // Robot pose y (decimal part)
+#define REG_SEND_POSE_Y 53 // Robot pose y
+#define REG_SEND_POSE_Y_DEC 54 // Robot pose y (decimal part)
 
-#define REG_SEND_POSE_W 54 // Robot pose w
-#define REG_SEND_POSE_W_CM 55 // Robot pose w (decimal part)
+#define REG_SEND_POSE_W 55 // Robot pose w
+#define REG_SEND_POSE_W_DEC 56 // Robot pose w (decimal part)
 
 // DRIVE DATA
 
-#define REG_RECEIVE_STOP_SIGNAL 56 // PID Stop signal
-#define REG_RECEIVE_MSG_DRIVE 57 // Receive drive control data
-#define REG_RECEIVE_GOAL_MARGIN 58 // PID goal margin
+#define REG_RECEIVE_GOAL_MARGIN 57 // PID goal margin
+#define REG_RECEIVE_GOAL_MARGIN_DEC 58 // PID goal margin
+#define REG_RECEIVE_STOP_SIGNAL 59 // PID Stop signal
+#define REG_SEND_EXIT_CODE 60 // Send exit code drive control data
 
-#define REG_SEND_MSG_DRIVE 59 // Receive drive control data
-#define REG_SEND_EXIT_CODE 60 // Receive drive control data
+#define REG_RECEIVE_CONTROL_MODE 61 // Receives control mode input
+
+#define REG_RECEIVE_SPEED_DATA 62 // Receive speed data
+#define REG_RECEIVE_MSG_DRIVE 63 // Receive drive control data
+#define REG_SEND_MSG_DRIVE 64 // Send drive control data
 
 class Motors {
   public:
@@ -82,6 +87,9 @@ class Motors {
     double m_pose[3] = {0.0, 0.0, 0.0};
 
     // PID
+    int m_controlModeInputPrev;
+    bool m_pidControlMode = false;
+    
     // Motor A tunings
     double m_kpA = 0.8;
     double m_kiA = 0.2;
@@ -102,13 +110,15 @@ class Motors {
 
     double m_setpointA, m_setpointB; // Motor goals as distance (setpoint)
 
-    const unsigned long m_timeChange = 1; // 1 millisecond delay per PID compute
-    const double m_stepDistance_cm = 5; // Distance per step
+    unsigned long m_timeChange = 1; // 1 millisecond delay per PID compute
+    double m_stepDistance_cm = 5; // Distance per step
     
     // ODOMETRY
     
-    const double m_distanceBetweenWheels = 20; // In cm
-    const double m_wheelDiameter = 4.75;
+    double m_distanceBetweenWheels = 20; // In cm
+    double m_wheelDiameter = 4.75;
+
+    volatile int m_speedValuePrev = 0;
     volatile int m_inputPrev = 0;
 
     // MEMBER METHODS
@@ -119,8 +129,11 @@ class Motors {
     void m_initializeSerialRegisters(); // Initialize serial registers
 
     // PID functions
+    void m_readControlModeRegister();
     void m_readPidTunningSettings();
     void m_readSetpoints();
+    void m_readOdometrySettings();
+    
     int m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal);
 
     double m_stepsToCentimetres(int t_steps);
@@ -137,12 +150,24 @@ class Motors {
     double m_readDecimalNumberFromRegisters(int t_register1, int t_register2);
   
     // General movement
+    void m_readSpeedLevelValue();
     void m_readDirectionInput();
+    void m_adjustSpeed(int t_speedLevel);
+    void m_motorSetDir(m_Motor t_motor, m_wheelDirection t_dir);
 
+    // Direction control no PID
+    void m_moveForward();
+    void m_moveBackward();
+    void m_moveLeft();
+    void m_moveRight();
+    void m_stopRobot();
+
+    // Direction control PID
     void m_rotateRobot(double t_angle_radians);
     void m_advanceRobot(double t_distance_cm);
     void m_moveRobot(m_robotDirection t_robotDirection, unsigned long t_duration);
     void m_aimRobot(m_robotDirection t_robotDirection);
+    void m_sendRobotPose(double t_pose[3]);
     
     // Encoder interrupts
     static void m_ENCA_ISR();
