@@ -33,15 +33,15 @@ class RPRK:
         print("Setting up ARB")
         ARBPiSetup(SERIAL)
         
-        self.motors = self.Motors(self)
         self.camera = self.Camera()
         self.infrared = self.InfraredSensor()
         self.ultrasound = self.Ultrasonic()
         self.joystick = self.Joystick()
         self.serial = self.Serial()
+        self.motors = self.Motors(self.serial)
             
     class Motors:
-        def __init__(self, rprk):
+        def __init__(self, serial):
             # Serial registers
             # PID
             self.REG_RECEIVE_KP_A = 30 # Receives proportional multiplier of motor A
@@ -98,7 +98,7 @@ class RPRK:
 
             # PID CONFIGURATION VARIABLES
             # Instatiate the RPRK class
-            self.rprk = rprk
+            self.serial = serial
             self.current_pose = [0, 0, 0] # x, y, w
 
             # Motor A tunings
@@ -120,14 +120,14 @@ class RPRK:
             self.wheel_diameter = 4.75
 
             # Set all initial values
-            self.set_control_mode(self, "PID");
-            self.set_pid_tunings(self, "A", self.kpA, self.kiA, self.kdA);
-            self.set_pid_tunings(self, "B", self.kpB, self.kiB, self.kdB);
-            self.set_timechange(self, self.timechange);
-            self.set_step_distance(self, self.step_distance_cm);
-            self.set_distance_between_wheels(self, self.distance_between_wheels);
-            self.set_wheel_diameter(self, self.wheel_diameter);
-            self.set_goal_margin(self, self.goal_margin);
+            self.set_control_mode("PID");
+            self.set_pid_tunings("A", self.kpA, self.kiA, self.kdA);
+            self.set_pid_tunings("B", self.kpB, self.kiB, self.kdB);
+            self.set_timechange(self.timechange);
+            self.set_step_distance(self.step_distance_cm);
+            self.set_distance_between_wheels(self.distance_between_wheels);
+            self.set_wheel_diameter(self.wheel_diameter);
+            self.set_goal_margin(self.goal_margin);
 
         # CONFIGURATION METHODS
 
@@ -166,26 +166,26 @@ class RPRK:
         # Method to set wheel diameter
         def set_wheel_diameter(self, wheel_diameter):
             # Send data
-            self.rprk.serial.send_fractional_number(wheel_diameter, self.REG_RECEIVE_WHEEL_DIAMETER, self.REG_RECEIVE_WHEEL_DIAMETER_DEC)
+            self.serial.send_fractional_number(wheel_diameter, self.REG_RECEIVE_WHEEL_DIAMETER, self.REG_RECEIVE_WHEEL_DIAMETER_DEC)
             self.wheel_diameter = wheel_diameter
             print(f"Wheel diameter: {wheel_diameter} cm")
 
         # Method to set goal margin
         def set_goal_margin(self, goal_margin):
             # Send data
-            self.rprk.serial.send_fractional_number(goal_margin, self.REG_RECEIVE_GOAL_MARGIN, self.REG_RECEIVE_GOAL_MARGIN_DEC)
+            self.serial.send_fractional_number(goal_margin, self.REG_RECEIVE_GOAL_MARGIN, self.REG_RECEIVE_GOAL_MARGIN_DEC)
             self.goal_margin = goal_margin
             print(f"Goal margin: {goal_margin}")
                 
         # Method to set individual PID tuning
         def set_pid_tuning(self, motor, tuning, value):
-            tuning_registers = {"A": {"KP": self.REG_RECEIVE_KP_A, "KI": self.REG_RECEIVE_KI_A, "KD": self.REG_RECEIVE_KD_A},
-                                "B": {"KP": self.REG_RECEIVE_KP_B, "KI": self.REG_RECEIVE_KP_B, "KD": self.REG_RECEIVE_KD_B}}
+            tuning_registers = {"A": {"KP": (self.REG_RECEIVE_KP_A, self.REG_RECEIVE_KP_A_DEC), "KI": (self.REG_RECEIVE_KI_A, self.REG_RECEIVE_KI_A_DEC), "KD": (self.REG_RECEIVE_KD_A, self.REG_RECEIVE_KD_A_DEC)},
+                                "B": {"KP": (self.REG_RECEIVE_KP_B, self.REG_RECEIVE_KP_B_DEC), "KI": (self.REG_RECEIVE_KI_B, self.REG_RECEIVE_KI_B_DEC), "KD": (self.REG_RECEIVE_KD_B, self.REG_RECEIVE_KD_B_DEC)}}
             
             if motor in tuning_registers:
                 if tuning in tuning_registers.get(motor):
                     # Send data
-                    putRegister(tuning_registers.get(motor).get(tuning), value)
+                    self.serial.send_fractional_number(value, tuning_registers.get(motor).get(tuning)[0], tuning_registers.get(motor).get(tuning)[1])
                     print(f"PID tuning {tuning} for motor {motor} set to: {value}")
                 else:
                     print("Incorrect tuning.")
@@ -207,16 +207,16 @@ class RPRK:
             
             if motor in setpoint_registers:
                 r1, r2 = setpoint_registers.get(motor);
-                self.rprk.send_fractional_number(value, r1, r2)
+                self.serial.send_fractional_number(value, r1, r2)
                 print(f"PID setpoint for motor {motor} set to: {value}")
             else:
                 print("Incorrect motor.")
 
         # Method to get robot pose
         def get_pose(self):
-            x = self.rprk.serial.read_fractional_number(self.REG_SEND_POSE_X, self.REG_SEND_POSE_X_DEC)
-            y = self.rprk.serial.read_fractional_number(self.REG_SEND_POSE_Y, self.REG_SEND_POSE_Y_DEC)
-            w = self.rprk.serial.read_fractional_number(self.REG_SEND_POSE_W, self.REG_SEND_POSE_W_DEC)
+            x = self.serial.read_fractional_number(self.REG_SEND_POSE_X, self.REG_SEND_POSE_X_DEC)
+            y = self.serial.read_fractional_number(self.REG_SEND_POSE_Y, self.REG_SEND_POSE_Y_DEC)
+            w = self.serial.read_fractional_number(self.REG_SEND_POSE_W, self.REG_SEND_POSE_W_DEC)
             
             self.current_pose = [x, y, w]
             return self.current_pose
@@ -653,8 +653,8 @@ class RPRK:
             return resultFrac
         
         def send_fractional_number(self, number, register1, register2):
-            wholePart = int(number);
-            fractPart = number*100 - wholePart*100;
+            wholePart = int(number)
+            fractPart = int(number*100 - wholePart*100)
 
-            putRegister(register1, wholePart);
-            putRegister(register2, fractPart);
+            putRegister(register1, wholePart)
+            putRegister(register2, fractPart)

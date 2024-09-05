@@ -39,8 +39,6 @@ void Motors::runMotors(){
     m_readSetpoints();
     m_readOdometrySettings();
     m_computePID(m_setpointA, m_setpointB, true);
-
-    m_readDirectionInput();
   }
   else {
     // General movement

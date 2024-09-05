@@ -93,8 +93,9 @@ class WallFollowerFSM:
         self.rprk.motors.set_robot_speed_by_level(4);
 
     def obstacle_in_front(self):
-        ir_distance = self.rprk.infrared.get_infrared_distance()
-        return ir_distance < self.front_wall_threshold
+        ir_distance_right = self.rprk.infrared.get_infrared_distance("right")
+        ir_distance_left = self.rprk.infrared.get_infrared_distance("left")
+        return (ir_distance_right < self.front_wall_threshold) or (ir_distance_left < self.front_wall_threshold)
 
     def wall_to_the_right(self):
         right_distance = self.rprk.ultrasound.get_ultrasound_distance("right")
