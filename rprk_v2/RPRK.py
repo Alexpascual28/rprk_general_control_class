@@ -87,7 +87,7 @@ class RPRK:
             # DRIVE DATA
             self.REG_RECEIVE_GOAL_MARGIN = 57 # PID goal margin
             self.REG_RECEIVE_GOAL_MARGIN_DEC = 58 # PID goal margin (decimal part)
-            self.REG_RECEIVE_STOP_SIGNAL = 59 # PID Stop signal
+            self.REG_RECEIVE_PID_SIGNAL = 59 # PID Data signal
             self.REG_SEND_EXIT_CODE = 60 # Send exit code drive control data
 
             self.REG_RECEIVE_CONTROL_MODE = 61 # Receives control mode input
@@ -102,16 +102,16 @@ class RPRK:
             self.current_pose = [0, 0, 0] # x, y, w
 
             # Motor A tunings
-            self.kpA = 0.8
-            self.kiA = 0.2
+            self.kpA = 30
+            self.kiA = 0.1
             self.kdA = 0.5
             
             # Motor B tunings
-            self.kpB = 0.8
-            self.kiB = 0.2
+            self.kpB = 30
+            self.kiB = 0.1
             self.kdB = 0.5
 
-            self.goal_margin = 0.01
+            self.goal_margin = 0.02 # Goal margin for PID control
             self.timechange = 1 # 1 millisecond delay per PID compute
             self.step_distance_cm = 5 # Distance per step
             
@@ -120,7 +120,6 @@ class RPRK:
             self.wheel_diameter = 4.75
 
             # Set all initial values
-            self.set_control_mode("PID");
             self.set_pid_tunings("A", self.kpA, self.kiA, self.kdA);
             self.set_pid_tunings("B", self.kpB, self.kiB, self.kdB);
             self.set_timechange(self.timechange);
@@ -128,6 +127,8 @@ class RPRK:
             self.set_distance_between_wheels(self.distance_between_wheels);
             self.set_wheel_diameter(self.wheel_diameter);
             self.set_goal_margin(self.goal_margin);
+            time.sleep(0.5)
+            self.set_control_mode("PID");
 
         # CONFIGURATION METHODS
 
@@ -227,13 +228,14 @@ class RPRK:
         
         # Method to send stop signal
         def send_PID_signal(self, signal):
-            possible_signals = {"continue": 0, "stop": 1}
-            putRegister(self.REG_RECEIVE_STOP_SIGNAL, possible_signals.get(signal))
+            possible_signals = {"continue": 0, "stop": 1, "direction": 2}
+            putRegister(self.REG_RECEIVE_PID_SIGNAL, possible_signals.get(signal))
             print(f"PID {signal} signal sent.")
 
         # Method to move the robot in a given direction for a given duration
         def move_robot(self, direction, duration):
             current_time = 0
+            self.send_PID_signal("direction")
 
             while current_time < duration:
                 self.change_direction(direction)
@@ -244,23 +246,32 @@ class RPRK:
 
         # Method to move the robot straight for a given distance
         def advance_robot(self, distance):
-            exit_code = 0
+            exit_signal = 0
+            self.send_PID_signal("continue")
+            self.set_pid_setpoint("A", distance)
+            self.set_pid_setpoint("B", distance)
 
-            while exit_code < 2:
-                self.set_pid_setpoint("A", distance)
-                self.set_pid_setpoint("B", distance)
-                exit_code = self.get_exit_code()
+            while exit_signal != -1:
+                exit_signal = getRegister(self.REG_RECEIVE_PID_SIGNAL)
+                time.sleep(0.1)
+            
+            print(f"Exit signal: {exit_signal}")
 
         # Method to rotate the robot by a given angle
         def rotate_robot(self, angle_radians):
             exit_code = 0
+            self.send_PID_signal("continue")
 
             distance = angle_radians * self.distance_between_wheels / 2
 
+            self.set_pid_setpoint("A", distance)
+            self.set_pid_setpoint("B", -distance)
+
             while exit_code < 2:
-                self.set_pid_setpoint("A", distance)
-                self.set_pid_setpoint("B", -distance)
                 exit_code = self.get_exit_code()
+                time.sleep(self.timechange/1000)
+
+            print(f"Exit code: {exit_code}")
 
         # SPEED CONTROL METHODS
             

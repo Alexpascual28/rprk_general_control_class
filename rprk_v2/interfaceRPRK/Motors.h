@@ -54,7 +54,7 @@
 
 #define REG_RECEIVE_GOAL_MARGIN 57 // PID goal margin
 #define REG_RECEIVE_GOAL_MARGIN_DEC 58 // PID goal margin
-#define REG_RECEIVE_STOP_SIGNAL 59 // PID Stop signal
+#define REG_RECEIVE_PID_SIGNAL 59 // PID Data signal
 #define REG_SEND_EXIT_CODE 60 // Send exit code drive control data
 
 #define REG_RECEIVE_CONTROL_MODE 61 // Receives control mode input
@@ -112,6 +112,8 @@ class Motors {
 
     unsigned long m_timeChange = 1; // 1 millisecond delay per PID compute
     double m_stepDistance_cm = 5; // Distance per step
+
+    int m_pidSignal = 0; // PID data signal to control PID computing
     
     // ODOMETRY
     
@@ -133,6 +135,7 @@ class Motors {
     void m_readPidTunningSettings();
     void m_readSetpoints();
     void m_readOdometrySettings();
+    void m_readPidSignal();
     
     int m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal);
 

@@ -35,10 +35,19 @@ void Motors::runMotors(){
   m_readControlModeRegister();
 
   if(m_pidControlMode == true){
-    m_readPidTunningSettings();
-    m_readSetpoints();
-    m_readOdometrySettings();
-    m_computePID(m_setpointA, m_setpointB, true);
+    for(int i = 0; i <= 10; i++) {
+      m_readPidTunningSettings();
+      m_readSetpoints();    
+      m_readOdometrySettings();
+      m_readPidSignal();
+    }
+    
+    if(m_pidSignal == 0 || m_pidSignal == 1){
+      m_computePID(m_setpointA, m_setpointB, true);
+    }
+
+    // m_readDirectionInput();
+    
   }
   else {
     // General movement
@@ -110,7 +119,7 @@ void Motors::m_initializeSerialRegisters(){
   
   // DRIVE DATA
   putRegister(REG_RECEIVE_GOAL_MARGIN, 0); // PID goal margin
-  putRegister(REG_RECEIVE_STOP_SIGNAL, 0); // PID Stop signal
+  putRegister(REG_RECEIVE_PID_SIGNAL, 0); // PID Stop signal
   putRegister(REG_SEND_EXIT_CODE, 0); // Send exit code drive control data
   putRegister(REG_RECEIVE_CONTROL_MODE, 0); // Receives control mode input
   
@@ -216,6 +225,14 @@ void Motors::m_readOdometrySettings(){
   }
 }
 
+void Motors::m_readPidSignal(){
+  int pidSignalInput = (int)getRegister(REG_RECEIVE_PID_SIGNAL);
+
+  if(pidSignalInput != m_pidSignal){
+    m_pidSignal = pidSignalInput;
+  }
+}
+
 int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal){
   int exitCode = 0;
   
@@ -225,9 +242,19 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
   double errorA = t_setpointA - stepsA_cm; // m_stepsA_cm -> input
   double errorB = t_setpointB - stepsB_cm; // m_stepsB_cm -> input
 
-  bool stopSignal = (bool)getRegister(REG_RECEIVE_STOP_SIGNAL);
+  Serial.print("KP: ");
+  Serial.println(m_kpA);
 
-  if((errorA > -m_goalMargin && errorA < m_goalMargin && stopAtGoal == true) || (stopSignal = true)){
+  Serial.print("KI: ");
+  Serial.println(m_kiA);
+
+  Serial.print("KD: ");
+  Serial.println(m_kdA);
+
+  Serial.print("Goal Margin: ");
+  Serial.println(m_goalMargin);
+
+  if((errorA > -m_goalMargin && errorA < m_goalMargin && stopAtGoal == true) || (m_pidSignal == 1)){
     m_setMotorSpeed(A, 0);
     m_resetErrors(A);
     exitCode += 1;
@@ -247,7 +274,7 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
     m_lastErrorA = errorA;
   }
 
-  if((errorB > -m_goalMargin && errorB < m_goalMargin && stopAtGoal == true) || (stopSignal = true)){
+  if((errorB > -m_goalMargin && errorB < m_goalMargin && stopAtGoal == true) || (m_pidSignal == 1)){
     m_setMotorSpeed(B, 0);
     m_resetErrors(B);
     exitCode += 1;
@@ -272,6 +299,8 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
     m_sendRobotPose(m_pose);
     m_stepsA = 0;
     m_stepsB = 0;
+    m_pidSignal = -1;
+    for(int i = 0; i <= 10; i++) putRegister(REG_RECEIVE_PID_SIGNAL, m_pidSignal);
   }
 
   putRegister(REG_SEND_EXIT_CODE, exitCode);
@@ -342,15 +371,15 @@ void Motors::m_calculateCurrentPose(double t_distanceA, double t_distanceB){
     m_pose[1] = m_pose[1] + distanceChange * sin(m_pose[2]+ (angleChange/2));
     m_pose[2] = m_pose[2] + angleChange;
 
-    Serial.print("Pose:");
-    
-    Serial.print(" [");
-    Serial.print(m_pose[0]);
-    Serial.print(", ");
-    Serial.print(m_pose[1]);
-    Serial.print(", ");
-    Serial.print(m_pose[2]);
-    Serial.println("]");
+//    Serial.print("Pose:");
+//    
+//    Serial.print(" [");
+//    Serial.print(m_pose[0]);
+//    Serial.print(", ");
+//    Serial.print(m_pose[1]);
+//    Serial.print(", ");
+//    Serial.print(m_pose[2]);
+//    Serial.println("]");
 }
 
 // REGISTER DATA MANAGEMENT

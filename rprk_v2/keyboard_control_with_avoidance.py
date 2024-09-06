@@ -65,7 +65,7 @@ class ObstacleAvoidControlWASD:
         self.wasd_control_thread = threading.Thread(target=self.main)
 
         self.user_input = ''
-        self.previous_speed_input = '0'
+        self.previous_speed_input = '2'
         self.previous_direction_input = ''
 
         self.keyboard.start_keyboard()
@@ -180,8 +180,9 @@ class ObstacleAvoidControlWASD:
             return False
 
     def obstacle_in_front(self):
-        ir_distance = self.rprk.infrared.get_infrared_distance()
-        return ir_distance < self.front_wall_threshold
+        ir_distance_right = self.rprk.infrared.get_infrared_distance("right")
+        ir_distance_left = self.rprk.infrared.get_infrared_distance("left")
+        return (ir_distance_right < self.front_wall_threshold) or (ir_distance_left < self.front_wall_threshold)
 
     def wall_to_the_right(self):
         right_distance = self.rprk.ultrasound.get_ultrasound_distance("right")

@@ -8,7 +8,7 @@ if __name__ == '__main__':
     try:
         rprk = RPRK()
 
-        rprk.motors.set_pid_setpoint("A", 100)
+        rprk.motors.advance_robot(10)
 
     except KeyboardInterrupt:
         print('Interrupted!')
