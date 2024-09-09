@@ -96,6 +96,11 @@ class RPRK:
             self.REG_RECEIVE_MSG_DRIVE = 63 # Receive drive control data
             self.REG_SEND_MSG_DRIVE = 64 # Send drive control data
 
+            # HANDSHAKE
+
+            self.REG_SEND_ACK = 65 # Send handshake signal
+            self.REG_RECEIVE_CONFIRM = 66 # Receive handshake signal
+
             # PID CONFIGURATION VARIABLES
             # Instatiate the RPRK class
             self.serial = serial

@@ -128,6 +128,8 @@ void Motors::m_initializeSerialRegisters(){
   putRegister(REG_SEND_MSG_DRIVE, 0); // Send drive control data
 }
 
+void Motors::m_update
+
 void Motors::m_readControlModeRegister(){
   int controlModeInput = getRegister(REG_RECEIVE_CONTROL_MODE);
 
