@@ -34,7 +34,7 @@ void Motors::initialize(){
 void Motors::runMotors(){
   m_readControlModeRegister();
 
-  if(m_pidControlMode == true){
+  if(m_pidControlMode == 0){
     for(int i = 0; i <= 10; i++) {
       m_readPidTunningSettings();
       m_readSetpoints();    
@@ -75,26 +75,15 @@ void Motors::m_attachInterrupts(){
 }
 
 void Motors::m_initializeSerialRegisters(){
-  // Setup some dummy data in the registers to be read by the Raspberry Pi
+  // Setup some initial data in the registers to be read by the Raspberry Pi
   
   // PID
-  putRegister(REG_RECEIVE_KP_A, 0); // Receives proportional multiplier of motor A
-  putRegister(REG_RECEIVE_KP_A_DEC, 0); // Receives proportional multiplier of motor A (decimal part)
-  
-  putRegister(REG_RECEIVE_KP_B, 0); // Receives proportional multiplier of motor B
-  putRegister(REG_RECEIVE_KP_B_DEC, 0); // Receives proportional multiplier of motor B (decimal part)
-  
-  putRegister(REG_RECEIVE_KI_A, 0); // Receives integral multiplier of motor A
-  putRegister(REG_RECEIVE_KI_A_DEC, 0); // Receives integral multiplier of motor A (decimal part)
-  
-  putRegister(REG_RECEIVE_KI_B, 0); // Receives integral multiplier of motor B
-  putRegister(REG_RECEIVE_KI_B_DEC, 0); // Receives integral multiplier of motor B (decimal part)
-  
-  putRegister(REG_RECEIVE_KD_A, 0); // Receives derivative multiplier of motor A
-  putRegister(REG_RECEIVE_KD_A_DEC, 0); // Receives derivative multiplier of motor A (decimal part)
-  
-  putRegister(REG_RECEIVE_KD_B, 0); // Receives derivative multiplier of motor B
-  putRegister(REG_RECEIVE_KD_B_DEC, 0); // Receives derivative multiplier of motor B (decimal part)
+  m_sendDecimalToRegisters(REG_RECEIVE_KP_A, REG_RECEIVE_KP_A_DEC, m_kpA); // Receives proportional multiplier of motor A
+  m_sendDecimalToRegisters(REG_RECEIVE_KP_B, REG_RECEIVE_KP_B_DEC, m_kpB); // Receives proportional multiplier of motor B
+  m_sendDecimalToRegisters(REG_RECEIVE_KI_A, REG_RECEIVE_KI_A_DEC, m_kiA); // Receives integral multiplier of motor A
+  m_sendDecimalToRegisters(REG_RECEIVE_KI_B, REG_RECEIVE_KI_B_DEC, m_kiB); // Receives integral multiplier of motor B
+  m_sendDecimalToRegisters(REG_RECEIVE_KD_A, REG_RECEIVE_KD_A_DEC, m_kdA); // Receives derivative multiplier of motor A
+  m_sendDecimalToRegisters(REG_RECEIVE_KD_B, REG_RECEIVE_KD_B_DEC, m_kdB); // Receives derivative multiplier of motor B
   
   putRegister(REG_RECEIVE_SETPOINT_A, 0); // PID Setpoint of wheel A
   putRegister(REG_RECEIVE_SETPOINT_A_DEC, 0); // PID Setpoint of wheel A (decimal part)
@@ -102,137 +91,126 @@ void Motors::m_initializeSerialRegisters(){
   putRegister(REG_RECEIVE_SETPOINT_B, 0); // PID Setpoint of wheel B
   putRegister(REG_RECEIVE_SETPOINT_B_DEC, 0); // PID Setpoint of wheel B (decimal part)
   
-  putRegister(REG_RECEIVE_TIMECHANGE, 0); // Millisecond delay between PID loop iterations
-  putRegister(REG_RECEIVE_STEP_DISTANCE, 0); // Distance per step
-  putRegister(REG_RECEIVE_DISTANCE_BETWEEN_WHEELS, 0); // Distance between wheels in centimetres
-  putRegister(REG_RECEIVE_WHEEL_DIAMETER, 0); // Wheel diameter
+  putRegister(REG_RECEIVE_TIMECHANGE, m_timeChange); // Millisecond delay between PID loop iterations
+  putRegister(REG_RECEIVE_STEP_DISTANCE, m_stepDistance_cm); // Distance per step
+  putRegister(REG_RECEIVE_DISTANCE_BETWEEN_WHEELS, m_distanceBetweenWheels); // Distance between wheels in centimetres
+  putRegister(REG_RECEIVE_WHEEL_DIAMETER, m_wheelDiameter); // Wheel diameter
   
   // POSE
-  putRegister(REG_SEND_POSE_X, 0); // Robot pose x
-  putRegister(REG_SEND_POSE_X_DEC, 0); // Robot pose x (decimal part)
-  
-  putRegister(REG_SEND_POSE_Y, 0); // Robot pose y
-  putRegister(REG_SEND_POSE_Y_DEC, 0); // Robot pose y (decimal part)
-  
-  putRegister(REG_SEND_POSE_W, 0); // Robot pose w
-  putRegister(REG_SEND_POSE_W_DEC, 0); // Robot pose w (decimal part)
+  m_sendDecimalToRegisters(REG_SEND_POSE_X, REG_SEND_POSE_X_DEC, m_pose[0]); // Robot pose x
+  m_sendDecimalToRegisters(REG_SEND_POSE_Y, REG_SEND_POSE_Y_DEC, m_pose[1]); // Robot pose y
+  m_sendDecimalToRegisters(REG_SEND_POSE_W, REG_SEND_POSE_W_DEC, m_pose[2]); // Robot pose w
   
   // DRIVE DATA
-  putRegister(REG_RECEIVE_GOAL_MARGIN, 0); // PID goal margin
-  putRegister(REG_RECEIVE_PID_SIGNAL, 0); // PID Stop signal
+  m_sendDecimalToRegisters(REG_RECEIVE_GOAL_MARGIN, REG_RECEIVE_GOAL_MARGIN_DEC, m_goalMargin); // PID goal margin
+  putRegister(REG_RECEIVE_PID_SIGNAL, m_pidSignal); // PID Stop signal
+  
   putRegister(REG_SEND_EXIT_CODE, 0); // Send exit code drive control data
   putRegister(REG_RECEIVE_CONTROL_MODE, 0); // Receives control mode input
   
   putRegister(REG_RECEIVE_SPEED_DATA, 0); // Receive speed data
   putRegister(REG_RECEIVE_MSG_DRIVE, 0); // Receive drive control data
   putRegister(REG_SEND_MSG_DRIVE, 0); // Send drive control data
+
+  putRegister(REG_SEND_CONFIRM, 0); // Send handshake signal
+  putRegister(REG_RECEIVE_ACK, 0); // Receive handshake signal
 }
 
-void Motors::m_update
+void Motors::m_updateVariableFromRegister(int* t_variablePtr, int t_register){
+  int currentTime = 0;
+  bool exitLoop = false;
+  
+  int input = getRegister(t_register);
+
+  if(input != *t_variablePtr){
+    *t_variablePtr = input;
+    putRegister(REG_SEND_CONFIRM, 1);
+
+    while(exitLoop == false){
+      int ackSignal = getRegister(REG_RECEIVE_ACK);
+
+      currentTime += m_timeChange;
+
+      if(currentTime >= m_timeout_ms){
+        putRegister(REG_SEND_CONFIRM, 2);
+        putRegister(REG_RECEIVE_ACK, 0);
+        exitLoop = true;
+        
+      } else if(ackSignal == 1) {
+        putRegister(REG_SEND_CONFIRM, 0);
+        putRegister(REG_RECEIVE_ACK, 0);
+        exitLoop = true;
+      }
+
+      delay(m_timeChange);
+    }
+  }
+}
+
+void Motors::m_updateDecimalVariableFromRegisters(double* t_variablePtr, int t_register1, int t_register2){
+  int currentTime = 0;
+  bool exitLoop = false;
+  
+  double input = m_readDecimalNumberFromRegisters(t_register1, t_register2);
+
+  if(input != *t_variablePtr){
+    *t_variablePtr = input;
+    putRegister(REG_SEND_CONFIRM, 1);
+
+    while(exitLoop == false){
+      int ackSignal = getRegister(REG_RECEIVE_ACK);
+
+      currentTime += m_timeChange;
+
+      if(currentTime >= m_timeout_ms){
+        putRegister(REG_SEND_CONFIRM, 2);
+        putRegister(REG_RECEIVE_ACK, 0);
+        exitLoop = true;
+        
+      } else if(ackSignal == 1) {
+        putRegister(REG_SEND_CONFIRM, 0);
+        putRegister(REG_RECEIVE_ACK, 0);
+        exitLoop = true;
+      }
+
+      delay(m_timeChange);
+    }
+  }
+}
 
 void Motors::m_readControlModeRegister(){
-  int controlModeInput = getRegister(REG_RECEIVE_CONTROL_MODE);
-
-  if(controlModeInput != m_controlModeInputPrev){
-    if(controlModeInput == 0){
-      m_pidControlMode = false;
-    }
-    else {
-      m_pidControlMode = true;
-    }
-    
-    m_controlModeInputPrev = controlModeInput;
-  }
+  m_updateVariableFromRegister(&m_pidControlMode, REG_RECEIVE_CONTROL_MODE);
 }
 
 void Motors::m_readPidTunningSettings(){
-  double kpAInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KP_A, REG_RECEIVE_KP_A_DEC);
-  double kpBInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KP_B, REG_RECEIVE_KP_B_DEC);
+  m_updateDecimalVariableFromRegisters(&m_kpA, REG_RECEIVE_KP_A, REG_RECEIVE_KP_A_DEC);
+  m_updateDecimalVariableFromRegisters(&m_kpB, REG_RECEIVE_KP_B, REG_RECEIVE_KP_B_DEC);
 
-  if(kpAInput != m_kpA){
-    m_kpA = kpAInput;
-  }
+  m_updateDecimalVariableFromRegisters(&m_kiA, REG_RECEIVE_KI_A, REG_RECEIVE_KI_A_DEC);
+  m_updateDecimalVariableFromRegisters(&m_kiB, REG_RECEIVE_KI_B, REG_RECEIVE_KI_B_DEC);
 
-  if(kpBInput != m_kpB){
-    m_kpB = kpBInput;
-  }
-  
-  double kiAInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KI_A, REG_RECEIVE_KI_A_DEC);
-  double kiBInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KI_B, REG_RECEIVE_KI_B_DEC);
-
-  if(kiAInput != m_kiA){
-    m_kiA = kiAInput;
-  }
-
-  if(kiBInput != m_kiB){
-    m_kiB = kiBInput;
-  }
-  
-  double kdAInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KD_A, REG_RECEIVE_KD_A_DEC);
-  double kdBInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_KD_B, REG_RECEIVE_KD_B_DEC);
-
-  if(kdAInput != m_kdA){
-    m_kdA = kdAInput;
-  }
-
-  if(kdBInput != m_kdB){
-    m_kdB = kdBInput;
-  }
+  m_updateDecimalVariableFromRegisters(&m_kdA, REG_RECEIVE_KD_A, REG_RECEIVE_KD_A_DEC);
+  m_updateDecimalVariableFromRegisters(&m_kdB, REG_RECEIVE_KD_B, REG_RECEIVE_KD_B_DEC);
 }
 
 // Read setpoint settings from Pi
 void Motors::m_readSetpoints(){
-  double setpointAInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_SETPOINT_A, REG_RECEIVE_SETPOINT_A_DEC);
-  double setpointBInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_SETPOINT_B, REG_RECEIVE_SETPOINT_B_DEC);
-
-  if(setpointAInput != m_setpointA){
-    m_setpointA = setpointAInput;
-  }
-
-  if(setpointBInput != m_setpointB){
-    m_setpointB = setpointBInput;
-  }
+  m_updateDecimalVariableFromRegisters(&m_setpointA, REG_RECEIVE_SETPOINT_A, REG_RECEIVE_SETPOINT_A_DEC);
+  m_updateDecimalVariableFromRegisters(&m_setpointB, REG_RECEIVE_SETPOINT_B, REG_RECEIVE_SETPOINT_B_DEC);
 }
 
 // Read odometry settings for the robot
 void Motors::m_readOdometrySettings(){
-  double timeChangeInput = (double)getRegister(REG_RECEIVE_TIMECHANGE);
+  m_updateVariableFromRegister(&m_timeChange, REG_RECEIVE_TIMECHANGE);
+  m_updateVariableFromRegister(&m_stepDistance_cm, REG_RECEIVE_STEP_DISTANCE);
+  m_updateVariableFromRegister(&m_distanceBetweenWheels, REG_RECEIVE_DISTANCE_BETWEEN_WHEELS);
   
-  if(timeChangeInput != m_timeChange){
-    m_timeChange = timeChangeInput;
-  }
-
-  double stepDistanceInput_cm = (double)getRegister(REG_RECEIVE_STEP_DISTANCE);
-
-  if(stepDistanceInput_cm != m_stepDistance_cm){
-    m_stepDistance_cm = stepDistanceInput_cm;
-  }
-
-  double distanceBetweenWheelsInput = (double)getRegister(REG_RECEIVE_DISTANCE_BETWEEN_WHEELS);
-  
-  if(distanceBetweenWheelsInput != m_distanceBetweenWheels){
-    m_distanceBetweenWheels = distanceBetweenWheelsInput;
-  }
-
-  double wheelDiameterInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_WHEEL_DIAMETER, REG_RECEIVE_WHEEL_DIAMETER_DEC);
-
-  if(wheelDiameterInput != m_wheelDiameter){
-    m_wheelDiameter = wheelDiameterInput;
-  }
-
-  float goalMarginInput = m_readDecimalNumberFromRegisters(REG_RECEIVE_GOAL_MARGIN, REG_RECEIVE_GOAL_MARGIN_DEC);
-
-  if(goalMarginInput != m_goalMargin){
-    m_goalMargin = goalMarginInput;
-  }
+  m_updateDecimalVariableFromRegisters(&m_wheelDiameter, REG_RECEIVE_WHEEL_DIAMETER, REG_RECEIVE_WHEEL_DIAMETER_DEC);
+  m_updateDecimalVariableFromRegisters(&m_goalMargin, REG_RECEIVE_GOAL_MARGIN, REG_RECEIVE_GOAL_MARGIN_DEC);
 }
 
 void Motors::m_readPidSignal(){
-  int pidSignalInput = (int)getRegister(REG_RECEIVE_PID_SIGNAL);
-
-  if(pidSignalInput != m_pidSignal){
-    m_pidSignal = pidSignalInput;
-  }
+  m_updateVariableFromRegister(&m_pidSignal, REG_RECEIVE_PID_SIGNAL);
 }
 
 int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal){
@@ -578,8 +556,8 @@ void Motors::m_advanceRobot(double t_distance_cm){
   }
 }
 
-void Motors::m_moveRobot(m_robotDirection t_robotDirection, unsigned long t_duration){
-  unsigned long currentTime = 0;
+void Motors::m_moveRobot(m_robotDirection t_robotDirection, int t_duration){
+  int currentTime = 0;
  
   while(currentTime < t_duration){
 

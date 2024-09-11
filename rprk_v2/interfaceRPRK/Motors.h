@@ -54,6 +54,7 @@
 
 #define REG_RECEIVE_GOAL_MARGIN 57 // PID goal margin
 #define REG_RECEIVE_GOAL_MARGIN_DEC 58 // PID goal margin
+
 #define REG_RECEIVE_PID_SIGNAL 59 // PID Data signal
 #define REG_SEND_EXIT_CODE 60 // Send exit code drive control data
 
@@ -62,6 +63,11 @@
 #define REG_RECEIVE_SPEED_DATA 62 // Receive speed data
 #define REG_RECEIVE_MSG_DRIVE 63 // Receive drive control data
 #define REG_SEND_MSG_DRIVE 64 // Send drive control data
+
+// HANDSHAKE
+
+#define REG_SEND_CONFIRM 65 // Send handshake signal
+#define REG_RECEIVE_ACK 66 // Receive handshake signal
 
 class Motors {
   public:
@@ -82,13 +88,15 @@ class Motors {
     // Variables to store step count from motors, must be volatlie to update from within ISR
     volatile static int m_stepsA;
     volatile static int m_stepsB;
+
+    // Handshake variables
+    int m_timeout_ms = 5000;
   
     // ROBOT POSE
     double m_pose[3] = {0.0, 0.0, 0.0};
 
     // PID
-    int m_controlModeInputPrev;
-    bool m_pidControlMode = false;
+    int m_pidControlMode = 0;
     
     // Motor A tunings
     double m_kpA = 0.8;
@@ -110,14 +118,14 @@ class Motors {
 
     double m_setpointA, m_setpointB; // Motor goals as distance (setpoint)
 
-    unsigned long m_timeChange = 1; // 1 millisecond delay per PID compute
-    double m_stepDistance_cm = 5; // Distance per step
+    int m_timeChange = 1; // 1 millisecond delay per PID compute
+    int m_stepDistance_cm = 5; // Distance per step
 
     int m_pidSignal = 0; // PID data signal to control PID computing
     
     // ODOMETRY
     
-    double m_distanceBetweenWheels = 20; // In cm
+    int m_distanceBetweenWheels = 20; // In cm
     double m_wheelDiameter = 4.75;
 
     volatile int m_speedValuePrev = 0;
@@ -129,6 +137,10 @@ class Motors {
     void m_setPinModes(); // Sets pins and pin modes of all components
     void m_attachInterrupts(); // Attaches interrupts
     void m_initializeSerialRegisters(); // Initialize serial registers
+
+    // REGISTER UPDATE
+    void m_updateVariableFromRegister(int t_variable, int t_register);
+    void m_updateDecimalVariableFromRegisters(double t_variable, int t_register1, int t_register2);
 
     // PID functions
     void m_readControlModeRegister();
@@ -168,7 +180,7 @@ class Motors {
     // Direction control PID
     void m_rotateRobot(double t_angle_radians);
     void m_advanceRobot(double t_distance_cm);
-    void m_moveRobot(m_robotDirection t_robotDirection, unsigned long t_duration);
+    void m_moveRobot(m_robotDirection t_robotDirection, int t_duration);
     void m_aimRobot(m_robotDirection t_robotDirection);
     void m_sendRobotPose(double t_pose[3]);
     

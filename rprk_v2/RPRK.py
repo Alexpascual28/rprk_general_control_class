@@ -10,6 +10,7 @@ Created on Thu Sep 3 2024
 
 """
 
+from msilib import add_data
 from ARBPi import *
 import math
 import time
@@ -98,8 +99,8 @@ class RPRK:
 
             # HANDSHAKE
 
-            self.REG_SEND_ACK = 65 # Send handshake signal
-            self.REG_RECEIVE_CONFIRM = 66 # Receive handshake signal
+            self.REG_SEND_CONFIRM = 65 # Send handshake signal
+            self.REG_RECEIVE_ACK = 66 # Receive handshake signal
 
             # PID CONFIGURATION VARIABLES
             # Instatiate the RPRK class
@@ -124,6 +125,9 @@ class RPRK:
             self.distance_between_wheels = 20 # In cm
             self.wheel_diameter = 4.75
 
+            # HANDSHAKE VARIABLES
+            self.timeout_ms = 5000 # Timeout in milliseconds
+
             # Set all initial values
             self.set_pid_tunings("A", self.kpA, self.kiA, self.kdA);
             self.set_pid_tunings("B", self.kpB, self.kiB, self.kdB);
@@ -134,6 +138,53 @@ class RPRK:
             self.set_goal_margin(self.goal_margin);
             time.sleep(0.5)
             self.set_control_mode("PID");
+        
+        # PROTO-HANDSHAKE COMMUNICATION METHODS
+
+        def send_data(self, data, register):
+            current_time = 0
+            exit_loop = False
+
+            if(len(register) == 1):
+                putRegister(register[0], data)
+            elif(len(register) == 2):
+                self.serial.send_fractional_number(data, register[0], register[1])
+            else:
+                raise Exception("Incorrect number of registers")
+            
+            while(exit_loop == False):
+                confirm_signal = getRegister(self.REG_SEND_CONFIRM)
+
+                current_time += self.timechange
+
+                if(confirm_signal == 1):
+                    putRegister(self.REG_RECEIVE_ACK, 1)
+
+                    while(exit_loop == False):
+                        confirm_signal = getRegister(self.REG_SEND_CONFIRM)
+
+                        current_time += self.timechange
+
+                        if(confirm_signal == 0):
+                            print("Data received")
+                            exit_loop = True
+
+                        elif(confirm_signal == 2):
+                            print("Arduino timed out. ACK signal not received.")
+                            putRegister(self.REG_SEND_CONFIRM, 1)
+                            exit_loop = True
+
+                        elif(current_time >= self.timeout_ms):
+                            print("Timeout")
+                            exit_loop = True
+
+                        time.sleep(self.timechange/1000)
+
+                elif(current_time >= self.timeout_ms):
+                    print("Timeout")
+                    exit_loop = True
+
+                time.sleep(self.timechange/1000)
 
         # CONFIGURATION METHODS
 
@@ -143,7 +194,7 @@ class RPRK:
 
             if control_mode in control_modes:
                 # Send data
-                putRegister(self.REG_RECEIVE_CONTROL_MODE, control_modes.get(control_mode))
+                self.send_data(control_modes.get(control_mode), [self.REG_RECEIVE_CONTROL_MODE,])
                 print(f"Control mode: {control_mode}")
             else:
                 print("Incorrect mode.")
@@ -151,35 +202,34 @@ class RPRK:
         # Method to set time per PID loop iteration in milliseconds
         def set_timechange(self, timechange):
             # Send data
-            putRegister(self.REG_RECEIVE_TIMECHANGE, timechange)
-            self.timechange = timechange
+            self.send_data(timechange, [self.REG_RECEIVE_TIMECHANGE,])
             print(f"PID iteration time: {timechange} ms")
 
         # Method to set distance per step
         def set_step_distance(self, step_distance):
             # Send data
-            putRegister(self.REG_RECEIVE_STEP_DISTANCE, step_distance)
+            self.send_data(step_distance, [self.REG_RECEIVE_STEP_DISTANCE,])
             self.step_distance_cm = step_distance
             print(f"Step distance: {step_distance} cm")
 
         # Method to set distance between wheels
         def set_distance_between_wheels(self, distance_between_wheels):
             # Send data
-            putRegister(self.REG_RECEIVE_DISTANCE_BETWEEN_WHEELS, distance_between_wheels)
+            self.send_data(distance_between_wheels, [self.REG_RECEIVE_DISTANCE_BETWEEN_WHEELS,])
             self.distance_between_wheels = distance_between_wheels
             print(f"Distance between wheels: {distance_between_wheels} cm")
 
         # Method to set wheel diameter
         def set_wheel_diameter(self, wheel_diameter):
             # Send data
-            self.serial.send_fractional_number(wheel_diameter, self.REG_RECEIVE_WHEEL_DIAMETER, self.REG_RECEIVE_WHEEL_DIAMETER_DEC)
+            self.send_data(wheel_diameter, [self.REG_RECEIVE_WHEEL_DIAMETER, self.REG_RECEIVE_WHEEL_DIAMETER_DEC])
             self.wheel_diameter = wheel_diameter
             print(f"Wheel diameter: {wheel_diameter} cm")
 
         # Method to set goal margin
         def set_goal_margin(self, goal_margin):
             # Send data
-            self.serial.send_fractional_number(goal_margin, self.REG_RECEIVE_GOAL_MARGIN, self.REG_RECEIVE_GOAL_MARGIN_DEC)
+            self.send_data(goal_margin, [self.REG_RECEIVE_GOAL_MARGIN, self.REG_RECEIVE_GOAL_MARGIN_DEC])
             self.goal_margin = goal_margin
             print(f"Goal margin: {goal_margin}")
                 
@@ -191,7 +241,7 @@ class RPRK:
             if motor in tuning_registers:
                 if tuning in tuning_registers.get(motor):
                     # Send data
-                    self.serial.send_fractional_number(value, tuning_registers.get(motor).get(tuning)[0], tuning_registers.get(motor).get(tuning)[1])
+                    self.send_data(value, [tuning_registers.get(motor).get(tuning)[0], tuning_registers.get(motor).get(tuning)[1]])
                     print(f"PID tuning {tuning} for motor {motor} set to: {value}")
                 else:
                     print("Incorrect tuning.")
@@ -213,7 +263,7 @@ class RPRK:
             
             if motor in setpoint_registers:
                 r1, r2 = setpoint_registers.get(motor);
-                self.serial.send_fractional_number(value, r1, r2)
+                self.send_data(value, [r1, r2])
                 print(f"PID setpoint for motor {motor} set to: {value}")
             else:
                 print("Incorrect motor.")
@@ -234,7 +284,7 @@ class RPRK:
         # Method to send stop signal
         def send_PID_signal(self, signal):
             possible_signals = {"continue": 0, "stop": 1, "direction": 2}
-            putRegister(self.REG_RECEIVE_PID_SIGNAL, possible_signals.get(signal))
+            self.send_data(possible_signals.get(signal), [self.REG_RECEIVE_PID_SIGNAL,])
             print(f"PID {signal} signal sent.")
 
         # Method to move the robot in a given direction for a given duration
