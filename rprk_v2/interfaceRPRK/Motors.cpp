@@ -157,7 +157,13 @@ void Motors::m_updateVariableFromRegister(int* t_variablePtr, int t_register){
     }
   }
   else {
-    putRegister(REG_SEND_CONFIRM, 4);
+    int confirmSignal = getRegister(REG_SEND_CONFIRM);
+
+    if(confirmSignal == 4) {
+      putRegister(REG_SEND_CONFIRM, 5);
+    } else if(confirmSignal == 5) {
+      putRegister(REG_SEND_CONFIRM, 4);
+    }
   }
 }
 
@@ -204,7 +210,13 @@ void Motors::m_updateDecimalVariableFromRegisters(double* t_variablePtr, int t_r
     }
   }
   else {
-    putRegister(REG_SEND_CONFIRM, 4);
+    int confirmSignal = getRegister(REG_SEND_CONFIRM);
+
+    if(confirmSignal == 4) {
+      putRegister(REG_SEND_CONFIRM, 5);
+    } else if(confirmSignal == 5) {
+      putRegister(REG_SEND_CONFIRM, 4);
+    }
   }
 }
 

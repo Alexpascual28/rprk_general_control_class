@@ -172,7 +172,7 @@ class RPRK:
 
                         current_time += self.timechange
 
-                        if(confirm_signal == 4):
+                        if(confirm_signal == 4 or confirm_signal == 5):
                             print("Data received")
                             exit_loop = True
 
@@ -192,7 +192,7 @@ class RPRK:
                     exit_loop = True
                     print("Data received, but confirmation failed.")
 
-                elif(confirm_signal == 4):
+                elif(confirm_signal == 4 or confirm_signal == 5):
                     putRegister(self.REG_SEND_CONFIRM, 0)
                     exit_loop = True
                     print("Value already set.")
