@@ -35,12 +35,10 @@ void Motors::runMotors(){
   m_readControlModeRegister();
 
   if(m_pidControlMode == 0){
-    for(int i = 0; i <= 10; i++) {
-      m_readPidTunningSettings();
-      m_readSetpoints();    
-      m_readOdometrySettings();
-      m_readPidSignal();
-    }
+    m_readPidTunningSettings();
+    m_readSetpoints();    
+    m_readOdometrySettings();
+    m_readPidSignal();
     
     if(m_pidSignal == 0 || m_pidSignal == 1){
       m_computePID(m_setpointA, m_setpointB, true);
@@ -117,6 +115,7 @@ void Motors::m_initializeSerialRegisters(){
 }
 
 void Motors::m_updateVariableFromRegister(int* t_variablePtr, int t_register){
+  putRegister(REG_SEND_CONFIRM, 0);
   int currentTime = 0;
   bool exitLoop = false;
   
@@ -126,18 +125,30 @@ void Motors::m_updateVariableFromRegister(int* t_variablePtr, int t_register){
     *t_variablePtr = input;
     putRegister(REG_SEND_CONFIRM, 1);
 
+    Serial.println("Confirm sent");
+
     while(exitLoop == false){
+      int confirmSignal = getRegister(REG_SEND_CONFIRM);
+
+      if(confirmSignal == 1) {
+        putRegister(REG_SEND_CONFIRM, 2);
+      } else if(confirmSignal == 2) {
+        putRegister(REG_SEND_CONFIRM, 1);
+      }
+
       int ackSignal = getRegister(REG_RECEIVE_ACK);
 
       currentTime += m_timeChange;
 
       if(currentTime >= m_timeout_ms){
-        putRegister(REG_SEND_CONFIRM, 2);
+        Serial.println("Timeout");
+        putRegister(REG_SEND_CONFIRM, 3);
         putRegister(REG_RECEIVE_ACK, 0);
         exitLoop = true;
         
       } else if(ackSignal == 1) {
-        putRegister(REG_SEND_CONFIRM, 0);
+        Serial.println("ACK received");
+        putRegister(REG_SEND_CONFIRM, 4);
         putRegister(REG_RECEIVE_ACK, 0);
         exitLoop = true;
       }
@@ -145,9 +156,13 @@ void Motors::m_updateVariableFromRegister(int* t_variablePtr, int t_register){
       delay(m_timeChange);
     }
   }
+  else {
+    putRegister(REG_SEND_CONFIRM, 4);
+  }
 }
 
 void Motors::m_updateDecimalVariableFromRegisters(double* t_variablePtr, int t_register1, int t_register2){
+  putRegister(REG_SEND_CONFIRM, 0);
   int currentTime = 0;
   bool exitLoop = false;
   
@@ -157,24 +172,39 @@ void Motors::m_updateDecimalVariableFromRegisters(double* t_variablePtr, int t_r
     *t_variablePtr = input;
     putRegister(REG_SEND_CONFIRM, 1);
 
+    Serial.println("Confirm sent");
+
     while(exitLoop == false){
+      int confirmSignal = getRegister(REG_SEND_CONFIRM);
+
+      if(confirmSignal == 1) {
+        putRegister(REG_SEND_CONFIRM, 2);
+      } else if(confirmSignal == 2) {
+        putRegister(REG_SEND_CONFIRM, 1);
+      }
+      
       int ackSignal = getRegister(REG_RECEIVE_ACK);
 
       currentTime += m_timeChange;
 
       if(currentTime >= m_timeout_ms){
-        putRegister(REG_SEND_CONFIRM, 2);
+        Serial.println("Timeout");
+        putRegister(REG_SEND_CONFIRM, 3);
         putRegister(REG_RECEIVE_ACK, 0);
         exitLoop = true;
         
       } else if(ackSignal == 1) {
-        putRegister(REG_SEND_CONFIRM, 0);
+        Serial.println("ACK received");
+        putRegister(REG_SEND_CONFIRM, 4);
         putRegister(REG_RECEIVE_ACK, 0);
         exitLoop = true;
       }
 
       delay(m_timeChange);
     }
+  }
+  else {
+    putRegister(REG_SEND_CONFIRM, 4);
   }
 }
 
@@ -280,7 +310,7 @@ int Motors::m_computePID(double t_setpointA, double t_setpointB, bool stopAtGoal
     m_stepsA = 0;
     m_stepsB = 0;
     m_pidSignal = -1;
-    for(int i = 0; i <= 10; i++) putRegister(REG_RECEIVE_PID_SIGNAL, m_pidSignal);
+    putRegister(REG_RECEIVE_PID_SIGNAL, m_pidSignal);
   }
 
   putRegister(REG_SEND_EXIT_CODE, exitCode);

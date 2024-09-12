@@ -1,0 +1,53 @@
+#######################################
+# Syntax Coloring Map For Keyboard
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+ARB_SERIAL	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+ARB	KEYWORD2
+ARBSetup	KEYWORD2
+getRegister	KEYWORD2
+putRegister	KEYWORD2
+serialUpdate	KEYWORD2
+setI2CBus	KEYWORD2
+uSecToCM	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+SPI_SCLK	LITERAL1
+MOTOR_DIRA	LITERAL1
+MOTOR_DIRB	LITERAL1
+GPIO4	LITERAL1
+PB_LEFT	LITERAL1
+GPIO3	LITERAL1
+PB_DOWN	LITERAL1
+I2C_SDA	LITERAL1
+I2C_SCL	LITERAL1
+GPIO2	LITERAL1
+PB_UP	LITERAL1
+GPIO1	LITERAL1
+SPI_CIPO	LITERAL1
+SPI_COPI	LITERAL1
+MOTOR_PWMB	LITERAL1
+MOTOR_PWMA	LITERAL1
+SPI_CS	LITERAL1
+USONIC1	LITERAL1
+USONIC2	LITERAL1
+USONIC3	LITERAL1
+USONIC4	LITERAL1
+MOTOR_ENCB	LITERAL1
+MOTOR_ENCA	LITERAL1
+RX	LITERAL1
+PB_RIGHT	LITERAL1
+TX	LITERAL1
+

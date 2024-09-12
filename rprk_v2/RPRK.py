@@ -10,7 +10,6 @@ Created on Thu Sep 3 2024
 
 """
 
-from msilib import add_data
 from ARBPi import *
 import math
 import time
@@ -147,44 +146,62 @@ class RPRK:
 
             if(len(register) == 1):
                 putRegister(register[0], data)
+                print(f"Data sent: {data} to register {register[0]}")
             elif(len(register) == 2):
                 self.serial.send_fractional_number(data, register[0], register[1])
+                print(f"Data sent: {data} to registers {register[0]} and {register[1]}")
             else:
                 raise Exception("Incorrect number of registers")
             
             while(exit_loop == False):
+                print("Waiting for confirmation")
+
                 confirm_signal = getRegister(self.REG_SEND_CONFIRM)
+
+                print(f"Confirm signal: {confirm_signal}")
 
                 current_time += self.timechange
 
-                if(confirm_signal == 1):
+                if(confirm_signal == 1 or confirm_signal == 2):
                     putRegister(self.REG_RECEIVE_ACK, 1)
 
                     while(exit_loop == False):
                         confirm_signal = getRegister(self.REG_SEND_CONFIRM)
 
+                        print(f"ACK Confirm signal: {confirm_signal}")
+
                         current_time += self.timechange
 
-                        if(confirm_signal == 0):
+                        if(confirm_signal == 4):
                             print("Data received")
                             exit_loop = True
 
-                        elif(confirm_signal == 2):
-                            print("Arduino timed out. ACK signal not received.")
-                            putRegister(self.REG_SEND_CONFIRM, 1)
+                        elif(confirm_signal == 3):
+                            putRegister(self.REG_SEND_CONFIRM, 0)
                             exit_loop = True
+                            raise Exception("Arduino timed out. ACK signal not received.")
 
                         elif(current_time >= self.timeout_ms):
-                            print("Timeout")
                             exit_loop = True
+                            raise TimeoutError("Timeout after confirmation")
+                            
+                        # time.sleep(self.timechange/1000)
 
-                        time.sleep(self.timechange/1000)
+                elif(confirm_signal == 3):
+                    putRegister(self.REG_SEND_CONFIRM, 0)
+                    exit_loop = True
+                    print("Data received, but confirmation failed.")
+
+                elif(confirm_signal == 4):
+                    putRegister(self.REG_SEND_CONFIRM, 0)
+                    exit_loop = True
+                    print("Value already set.")
 
                 elif(current_time >= self.timeout_ms):
-                    print("Timeout")
                     exit_loop = True
-
-                time.sleep(self.timechange/1000)
+                    raise TimeoutError("Timeout")
+                    
+                # time.sleep(self.timechange/1000)
 
         # CONFIGURATION METHODS
 
@@ -197,7 +214,7 @@ class RPRK:
                 self.send_data(control_modes.get(control_mode), [self.REG_RECEIVE_CONTROL_MODE,])
                 print(f"Control mode: {control_mode}")
             else:
-                print("Incorrect mode.")
+                raise Exception("Incorrect mode.")
 
         # Method to set time per PID loop iteration in milliseconds
         def set_timechange(self, timechange):
@@ -244,12 +261,13 @@ class RPRK:
                     self.send_data(value, [tuning_registers.get(motor).get(tuning)[0], tuning_registers.get(motor).get(tuning)[1]])
                     print(f"PID tuning {tuning} for motor {motor} set to: {value}")
                 else:
-                    print("Incorrect tuning.")
+                    raise Exception("Incorrect tuning.")
             else:
-                print("Incorrect motor.")
+                raise Exception("Incorrect motor.")
 
          # Method to set PID tunings
         def set_pid_tunings(self, motor, kp, ki, kd):
+            print(f"Setting PID tunings for motor {motor}: KP: {kp}, KI: {ki}, KD: {kd}")
             self.set_pid_tuning(motor, "KP", kp)
             self.set_pid_tuning(motor, "KI", ki)
             self.set_pid_tuning(motor, "KD", kd)
@@ -266,7 +284,7 @@ class RPRK:
                 self.send_data(value, [r1, r2])
                 print(f"PID setpoint for motor {motor} set to: {value}")
             else:
-                print("Incorrect motor.")
+                raise Exception("Incorrect motor.")
 
         # Method to get robot pose
         def get_pose(self):
@@ -339,7 +357,7 @@ class RPRK:
                 putRegister(self.REG_RECEIVE_MSG_DRIVE, possible_directions.get(direction))
                 print(f"Moving {direction}")
             else:
-                print("Incorrect direction.")
+                raise Exception("Incorrect direction.")
                 
         # Changes the robot speed based on the given speed level
         def set_robot_speed_by_level(self, speed_level):
@@ -349,7 +367,7 @@ class RPRK:
                 putRegister(self.REG_RECEIVE_SPEED_DATA, speed_level)
                 print(f"Setting speed level to {speed_level}")
             else:
-                print("Incorrect speed level.")
+                raise Exception("Incorrect speed level.")
 
     class Camera:
         def __init__(self):
@@ -657,7 +675,7 @@ class RPRK:
                 distance = np.uint8(distance)
                 return distance
             else:
-                print("Incorrect sensor name.")
+                raise Exception(f"Incorrect sensor name: {sensor}")
                                 
     class Joystick:
         def __init__(self):
@@ -677,7 +695,7 @@ class RPRK:
                 print(f"The joystick is moving {direction}")
                 return direction
             else:
-                print(f"Unusual value read from the register: {direction_data}")
+                raise Exception(f"Unusual value read from the register: {direction_data}")
             
     class InfraredSensor:
         def __init__(self):

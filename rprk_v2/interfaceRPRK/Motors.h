@@ -109,7 +109,7 @@ class Motors {
     double m_kiB = 0.2;
     double m_kdB = 0.5;
 
-    float m_goalMargin = 0.01;
+    double m_goalMargin = 0.01;
 
     double m_errorSumA = 0;
     double m_errorSumB = 0;
@@ -139,8 +139,8 @@ class Motors {
     void m_initializeSerialRegisters(); // Initialize serial registers
 
     // REGISTER UPDATE
-    void m_updateVariableFromRegister(int t_variable, int t_register);
-    void m_updateDecimalVariableFromRegisters(double t_variable, int t_register1, int t_register2);
+    void m_updateVariableFromRegister(int* t_variablePtr, int t_register);
+    void m_updateDecimalVariableFromRegisters(double* t_variable, int t_register1, int t_register2);
 
     // PID functions
     void m_readControlModeRegister();
